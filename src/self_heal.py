@@ -1,5 +1,5 @@
 """
-NEXUS-PRIME-Ω  Self-Healing Engine  v2
+ZENO  Self-Healing Engine v2
 ========================================
 When ZenoPrime hits any error, this module:
   1. Captures the full traceback + relevant source file
