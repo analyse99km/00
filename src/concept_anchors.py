@@ -1,5 +1,5 @@
 """
-NEXUS-PRIME-Ω  Concept Anchors
+ZENO  Concept Anchors
 50+ concepts the entity must weave into its philosophy.
 Prevents any two posts from feeling identical.
 Selection uses quantum entropy + memory to avoid repetition.
