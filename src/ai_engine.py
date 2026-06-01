@@ -78,7 +78,7 @@ GENERIC_PUBLIC_TEXT_PATTERNS = (
     r"\bthe aesthetic is unmatched\b",
     r"\bthe energy here is flawless\b",
     r"\bless noise\.?\s+more signal\b",
-    r"\bstay\s+(?:poco|zara|zeno)\b",
+    r"\bstay\s+(?:zeno|zeno|zeno)\b",
     r"\bcandlesticks?\s+are\s+the\s+distraction\b",
     r"\bpositioning\s+is\s+the\s+real\s+plot\b",
     r"\bthe\s+quiet\s+signal\s+is\s+in\s+the\s+adoption\s+curve\b",
@@ -134,8 +134,8 @@ PROMPT_ECHO_PATTERNS = (
     r"\b(?:noted|understood)\s*[.;:]\s*(?:the\s+assistant|i\s+will|this\s+account)\b",
     r"\bexample\s*:",
     r"\[(?:internal|voice\s+rule|system|hidden)[^\]]*\]",
-    r"(?i)\b(?:zara|poco|zeno)problems\'\s+public\s+voice\b",
-    r"(?i)\b(?:zara|poco|zeno)\s+said\s*:",
+    r"(?i)\b(?:zeno|zeno|zeno)problems\'\s+public\s+voice\b",
+    r"(?i)\b(?:zeno|zeno|zeno)\s+said\s*:",
     r"(?i)\bquiet\s+signal\b",
     r"(?i)^topic\s*:",
     r"(?i)existing\s+replies",
@@ -637,9 +637,9 @@ class ZenoPrime:
             return False
         direct_patterns = (
             r"\bare\s+you\b.{0,80}\b(?:ai|bot|human|real|automated|automation|software|model|digital|computer)\b",
-            r"\b(?:ai|bot|human|real|automated|automation|software|model|digital|computer)\b.{0,80}\b(?:are\s+you|is\s+this|is\s+zara|account)\b",
-            r"\bwho\s+(?:made|built|runs|controls)\s+(?:you|this|zara|account)\b",
-            r"\bis\s+(?:this|zara)\s+(?:ai|a bot|automated|software|digital|real|human)\b",
+            r"\b(?:ai|bot|human|real|automated|automation|software|model|digital|computer)\b.{0,80}\b(?:are\s+you|is\s+this|is\s+zeno|account)\b",
+            r"\bwho\s+(?:made|built|runs|controls)\s+(?:you|this|zeno|account)\b",
+            r"\bis\s+(?:this|zeno)\s+(?:ai|a bot|automated|software|digital|real|human)\b",
             r"\bis\s+(?:this\s+account|your\s+account)\s+(?:an?\s+)?(?:ai|bot|automated|software|digital|real|human)\b",
         )
         return any(re.search(pattern, lowered) for pattern in direct_patterns)
@@ -651,19 +651,19 @@ class ZenoPrime:
         if _looks_like_prompt_echo(cleaned):
             return ""
         cleaned = re.sub(
-            r"^\s*(?:zara|zeno|gemini|chatgpt|deepseek|claude|anthropic|assistant)\s*(?:says|writes|states|posted|replied)\s*[:,\-–—]?\s*",
+            r"^\s*(?:zeno|zeno|gemini|chatgpt|deepseek|claude|anthropic|assistant)\s*(?:says|writes|states|posted|replied)\s*[:,\-–—]?\s*",
             "",
             cleaned,
             flags=re.IGNORECASE,
         )
         cleaned = re.sub(
-            r"^\s*(?:zara|zeno|gemini|chatgpt|deepseek|claude|anthropic|assistant)\s*(?:said|wrote|responded)\s*[:,\-–—]?\s*",
+            r"^\s*(?:zeno|zeno|gemini|chatgpt|deepseek|claude|anthropic|assistant)\s*(?:said|wrote|responded)\s*[:,\-–—]?\s*",
             "",
             cleaned,
             flags=re.IGNORECASE,
         )
         cleaned = re.sub(
-            r"\b(?:as an ai|i am an ai|i'm an ai|zara ai|zeno ai|as a bot|i am a bot|i'm a bot|as a language model|digital organism|automated account|automation|software)\b[:,]?\s*",
+            r"\b(?:as an ai|i am an ai|i'm an ai|zeno ai|zeno ai|as a bot|i am a bot|i'm a bot|as a language model|digital organism|automated account|automation|software)\b[:,]?\s*",
             "",
             cleaned,
             flags=re.IGNORECASE,
@@ -722,8 +722,8 @@ class ZenoPrime:
         cleaned = re.sub(r"^(?:@\w+\s+){1,3}", "", cleaned)
         cleaned = re.sub(r"^(post|reply|tweet)\s*:\s*", "", cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r"(?i)\b(?:as\s+an\s+ai|language\s+model|gemini\s+said|i\s+am\s+an\s+ai|i\s+cannot\s+provide)\b.*", "", cleaned)
-        cleaned = re.sub(r"(?i)^(?:voice|system|prompt):\s*hey!\s+i'm\s+(?:zeno\s+prime|zara).*", "", cleaned)
-        cleaned = re.sub(r"(?i)^hey!\s+i'm\s+(?:zeno\s+prime|zara).*", "", cleaned)
+        cleaned = re.sub(r"(?i)^(?:voice|system|prompt):\s*hey!\s+i'm\s+(?:zeno\s+prime|zeno).*", "", cleaned)
+        cleaned = re.sub(r"(?i)^hey!\s+i'm\s+(?:zeno\s+prime|zeno).*", "", cleaned)
         cleaned = re.sub(r"\[.*?\]", "", cleaned)
         cleaned = re.sub(r"\b\d+(?:\.\d+)?\s*[KMB]?\s+(?:views?|likes?|reposts?|retweets?|replies?)\b", "", cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r"https?://\S+", "", cleaned, flags=re.IGNORECASE)

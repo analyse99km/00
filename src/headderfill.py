@@ -91,7 +91,7 @@ from webdriver_manager.chrome import (
 # =========================================================
 
 HEADDERFILL_VERSION = (
-    "zara-enterprise-browser-bootstrap-2026-05-20"
+    "zeno-enterprise-browser-bootstrap-2026-05-20"
 )
 
 # =========================================================
@@ -418,7 +418,7 @@ def resolve_window_size(
 
     override = parse_window_size(
         os.environ.get(
-            "ZARA_WINDOW_SIZE",
+            "ZENO_WINDOW_SIZE",
             "",
         )
     )
@@ -454,7 +454,7 @@ def profile_directory_name():
 
     return (
         os.environ.get(
-            "ZARA_PROFILE_DIRECTORY",
+            "ZENO_PROFILE_DIRECTORY",
             "Default",
         ).strip()
         or "Default"
@@ -471,7 +471,7 @@ def resolve_browser_binary(
 
     candidates = [
         os.environ.get(
-            "ZARA_CHROMIUM_BINARY",
+            "ZENO_CHROMIUM_BINARY",
             "",
         ).strip(),
 
@@ -490,7 +490,7 @@ def resolve_browser_binary(
     candidates.extend(
         parse_env_list(
             os.environ.get(
-                "ZARA_EXTRA_BINARY_CANDIDATES",
+                "ZENO_EXTRA_BINARY_CANDIDATES",
                 "",
             )
         )
@@ -891,7 +891,7 @@ def clear_driver_cache_if_requested(
 
     enabled = (
         os.environ.get(
-            "ZARA_CLEAR_WDM_CACHE",
+            "ZENO_CLEAR_WDM_CACHE",
             "",
         )
         .strip()
@@ -1387,7 +1387,7 @@ def apply_hardcoded_fingerprint(
 
     stealth_script = f"""
 
-        const __zaraFp = {json.dumps(payload)};
+        const __zenoFp = {json.dumps(payload)};
 
         Object.defineProperty(
             navigator,
@@ -1401,7 +1401,7 @@ def apply_hardcoded_fingerprint(
             navigator,
             'platform',
             {{
-                get: () => __zaraFp.platform
+                get: () => __zenoFp.platform
             }}
         );
 
@@ -1409,7 +1409,7 @@ def apply_hardcoded_fingerprint(
             navigator,
             'language',
             {{
-                get: () => __zaraFp.language
+                get: () => __zenoFp.language
             }}
         );
 
@@ -1417,7 +1417,7 @@ def apply_hardcoded_fingerprint(
             navigator,
             'languages',
             {{
-                get: () => __zaraFp.languages
+                get: () => __zenoFp.languages
             }}
         );
 
@@ -1425,7 +1425,7 @@ def apply_hardcoded_fingerprint(
             navigator,
             'vendor',
             {{
-                get: () => __zaraFp.vendor
+                get: () => __zenoFp.vendor
             }}
         );
 
@@ -1433,7 +1433,7 @@ def apply_hardcoded_fingerprint(
             navigator,
             'hardwareConcurrency',
             {{
-                get: () => __zaraFp.hardware_concurrency
+                get: () => __zenoFp.hardware_concurrency
             }}
         );
 
@@ -1441,7 +1441,7 @@ def apply_hardcoded_fingerprint(
             navigator,
             'deviceMemory',
             {{
-                get: () => __zaraFp.device_memory
+                get: () => __zenoFp.device_memory
             }}
         );
 
@@ -1449,7 +1449,7 @@ def apply_hardcoded_fingerprint(
             screen,
             'width',
             {{
-                get: () => __zaraFp.window_width
+                get: () => __zenoFp.window_width
             }}
         );
 
@@ -1457,7 +1457,7 @@ def apply_hardcoded_fingerprint(
             screen,
             'height',
             {{
-                get: () => __zaraFp.window_height
+                get: () => __zenoFp.window_height
             }}
         );
 
@@ -1465,7 +1465,7 @@ def apply_hardcoded_fingerprint(
             window,
             'devicePixelRatio',
             {{
-                get: () => __zaraFp.device_scale_factor
+                get: () => __zenoFp.device_scale_factor
             }}
         );
 
@@ -1501,7 +1501,7 @@ def apply_hardcoded_fingerprint(
             );
 
             result.timeZone = (
-                __zaraFp.timezone
+                __zenoFp.timezone
             );
 
             return result;
@@ -1727,7 +1727,7 @@ def configured_driver_backends():
 
     requested = parse_env_list(
         os.environ.get(
-            "ZARA_DRIVER_BACKENDS",
+            "ZENO_DRIVER_BACKENDS",
             "",
         )
     )
