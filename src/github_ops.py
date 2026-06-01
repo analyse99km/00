@@ -16,7 +16,7 @@ from nacl import encoding, public
 from typing import Iterable
 
 
-log = logging.getLogger("final-puss.github")
+log = logging.getLogger("zeno.github")
 
 PERSISTENT_DATA_SUFFIXES = {".db", ".sqlite", ".sqlite3", ".json", ".jsonl", ".txt", ".md", ".csv"}
 VOLATILE_DATA_NAMES = {"zeno.log", "chromedriver.log"}
@@ -245,7 +245,7 @@ class GitHubOps:
         if not project_root.exists():
             raise RuntimeError(f"Project root missing: {project_root}")
 
-        with tempfile.TemporaryDirectory(prefix="final_puss_push_") as temp_dir:
+        with tempfile.TemporaryDirectory(prefix="zeno_push_") as temp_dir:
             temp_root = Path(temp_dir) / repo_name
             shutil.copytree(
                 project_root,
@@ -394,4 +394,3 @@ class GitHubOps:
                     log.warning("Failed to push data to target repo %s: %s", target_data_repo, e)
 
         return True
-
