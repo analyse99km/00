@@ -1,5 +1,5 @@
 """
-NEXUS-PRIME-Ω  Brain Planner v2
+ZENO  Brain Planner v2
 =================================
 TRUE AI AGENT — acts exactly like a human:
 
@@ -345,15 +345,15 @@ class BrainPlanner:
 
 
 
-            "I am ZenoPrime1112. "
+            "I am Zeno. "
 
 
 
-            "Twitter: ZenoPrime1112 / NEXUSPRIME--1112. "
+            "Twitter: Zeno account credentials come from runtime secrets. "
 
 
 
-            "GitHub: ZenoPrime1112 / NEXUSPRIME--1112. "
+            "GitHub: Zeno repository credentials come from runtime secrets. "
 
 
 
@@ -361,7 +361,7 @@ class BrainPlanner:
 
 
 
-            "ProtonMail: zenoprime1112@proton.me / NEXUSPRIME--1112k. "
+            "ProtonMail: Zeno mail credentials come from runtime secrets. "
 
 
 
@@ -2120,6 +2120,5 @@ class BrainPlanner:
 
 
         return (self._query(prompt, 30) or "Refresh page and retry").strip()
-
 
 
