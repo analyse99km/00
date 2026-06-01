@@ -67,6 +67,11 @@ def main() -> None:
         action="store_true",
         help="Run without posting or mutating external services",
     )
+    parser.add_argument(
+        "--boot-validation-only",
+        action="store_true",
+        help="Run one boot validation cycle and exit",
+    )
     args = parser.parse_args()
 
     data_path = Path(args.data_path)
@@ -82,6 +87,8 @@ def main() -> None:
     # Inject into environment so submodules (ai_brain, publisher) can access them
     os.environ["ZENO_MISSION_TOPIC"] = target_topic
     os.environ["ZENO_TARGET_REPO"] = target_repo
+    if args.boot_validation_only:
+        os.environ["ZENO_BOOT_SEQUENCE_ONLY"] = "1"
 
     log.info("=" * 52)
     log.info("ZENO AWAKENING (V1)")
@@ -92,6 +99,7 @@ def main() -> None:
     log.info("Profile path: %s", profile_path)
     log.info("Headless: %s", not args.no_headless)
     log.info("Dry run: %s", args.dry_run)
+    log.info("Boot validation only: %s", args.boot_validation_only)
     log.info("=" * 52)
 
     entity = None
