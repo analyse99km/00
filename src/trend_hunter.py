@@ -6,55 +6,12 @@ import re
 from datetime import datetime, timedelta
 
 
-MISSION_TERMS = {
-    "entertainment",
-    "celebrity",
-    "celebrities",
-    "movie",
-    "movies",
-    "music",
-    "gaming",
-    "streaming",
-    "viral",
-    "culture",
-    "geopolitics",
-    "war",
-    "conflict",
-    "foreign",
-    "policy",
-    "world",
-    "politics",
-    "political",
-    "election",
-    "government",
-    "crypto",
-    "bitcoin",
-    "ethereum",
-    "solana",
-    "blockchain",
-    "defi",
-    "web3",
-    "meme",
-    "memes",
-    "humor",
-    "funny",
-}
+DEFAULT_TOPICS = ["crypto startups"]
 
-MISSION_PHRASES = {
-    "world order",
-    "foreign policy",
-    "war update",
-    "global conflict",
-    "crypto market",
-    "bitcoin etf",
-    "crypto regulation",
-    "political meme",
-    "geopolitics meme",
-    "internet meme",
-    "entertainment news",
-    "box office",
-    "streaming war",
-}
+# These are intentionally populated from ZENO_MISSION_TOPIC at runtime.
+# Keeping them empty by default prevents old Nexus/Zara/Poco topic drift.
+MISSION_TERMS: set[str] = set()
+MISSION_PHRASES: set[str] = set()
 
 SHOPPING_TERMS = {
     "shopping",
@@ -102,54 +59,17 @@ SHOPPING_PHRASES = {
 class TrendHunter:
     def __init__(self) -> None:
         self.configured_topics = self._configured_topics()
-        self.topic_groups = {
-            "entertainment": [
-                "entertainment news",
-                "celebrity drama",
-                "movie buzz",
-                "music industry",
-                "streaming war",
-                "gaming culture",
-            ],
-            "memes": [
-                "political meme",
-                "geopolitics meme",
-                "crypto meme",
-                "internet meme",
-                "viral meme",
-            ],
-            "geopolitics": [
-                "geopolitics",
-                "war update",
-                "global conflict",
-                "world order",
-                "foreign policy",
-            ],
-            "politics": [
-                "politics",
-                "policy debate",
-                "election strategy",
-                "government reform",
-            ],
-            "crypto": [
-                "crypto",
-                "bitcoin",
-                "ethereum",
-                "solana",
-                "crypto regulation",
-                "crypto market",
-            ],
-        }
-        if self.configured_topics:
-            self.topic_groups["configured"] = self.configured_topics
-            for topic in self.configured_topics:
-                lowered = topic.lower()
-                MISSION_PHRASES.add(lowered)
-                MISSION_TERMS.update(re.findall(r"[a-z]{3,}", lowered))
+        self.topic_groups = {"configured": self.configured_topics}
+        for topic in self.configured_topics:
+            lowered = topic.lower()
+            MISSION_PHRASES.add(lowered)
+            MISSION_TERMS.update(re.findall(r"[a-z]{3,}", lowered))
         self.seed_topics = [item for values in self.topic_groups.values() for item in values]
 
     def _configured_topics(self) -> list[str]:
         raw = os.environ.get("ZENO_MISSION_TOPIC", "").strip()
+        if not raw:
+            raw = ",".join(DEFAULT_TOPICS)
         topics: list[str] = []
         seen = set()
         for item in re.split(r"[,;\n]+", raw):
@@ -179,19 +99,6 @@ class TrendHunter:
                     f"{safe_topic} filter:videos min_faves:220 min_retweets:20 min_replies:15 lang:en since:{since}",
                 ]
             )
-        queries.extend([
-            f"entertainment news filter:videos min_faves:4200 min_retweets:300 min_replies:55 lang:en since:{since}",
-            f"politics OR geopolitics min_faves:120 min_replies:18 lang:en since:{since}",
-            f"political meme OR geopolitics meme filter:videos min_faves:4500 min_retweets:360 min_replies:60 lang:en since:{since}",
-            f"crypto OR bitcoin min_faves:90 min_replies:16 lang:en since:{since}",
-            f"geopolitics filter:videos min_faves:4200 min_retweets:360 min_replies:50 lang:en since:{since}",
-            f"war update filter:videos min_faves:3500 min_retweets:300 min_replies:45 lang:en since:{since}",
-            f"memes OR entertainment min_faves:100 min_replies:14 lang:en since:{since}",
-            f"foreign policy filter:images min_faves:3400 min_retweets:320 min_replies:40 lang:en since:{since}",
-            f"politics filter:images min_faves:3800 min_retweets:320 min_replies:55 lang:en since:{since}",
-            f"crypto OR bitcoin filter:images min_faves:3800 min_retweets:320 min_replies:50 lang:en since:{since}",
-            f"crypto regulation OR bitcoin ETF filter:videos min_faves:2600 min_retweets:220 min_replies:35 lang:en since:{since}",
-        ])
         return queries
 
     def parse_queries(self, raw: str) -> list[str]:
