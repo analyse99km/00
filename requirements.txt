@@ -3,3 +3,4 @@ undetected-chromedriver
 webdriver-manager
 schedule
 requests
+PyNaCl
