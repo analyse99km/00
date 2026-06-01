@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 DEFAULT_TOPICS = ["crypto startups"]
 
 # These are intentionally populated from ZENO_MISSION_TOPIC at runtime.
-# Keeping them empty by default prevents old Nexus/zeno/zeno topic drift.
+# Keeping them empty by default prevents old Nexus/Zara/Poco topic drift.
 MISSION_TERMS: set[str] = set()
 MISSION_PHRASES: set[str] = set()
 
