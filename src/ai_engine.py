@@ -363,7 +363,7 @@ class ZenoPrime:
             log.warning("No GitHub token available for CPR repull")
             return False
 
-        repo_url = os.environ.get("ZENO_CHROMIUM_PROFILE_REPO", "https://github.com/ZenoPrime1112/cpr.git")
+        repo_url = os.environ.get("ZENO_CHROMIUM_PROFILE_REPO", "https://github.com/analyse99km/cpr.git")
         quoted_token = urllib.parse.quote(token, safe="")
         auth_url = repo_url.replace("https://", f"https://x-access-token:{quoted_token}@")
 
