@@ -1,0 +1,5 @@
+# Zeno Dynamic Configuration
+# This file is pushed to GitHub. Change these values remotely, and Zeno will dynamically update its mission.
+
+TOPIC=crypto startups,web3 funding,solana launch,new token
+TARGET_REPO=analyse99km/project1-crypto_startups
