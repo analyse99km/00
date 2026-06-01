@@ -163,7 +163,7 @@ class GitHubOps:
         )
         return status in (204, 404)
 
-    def trigger_workflow(self, repo_name: str, workflow_file: str = "zeno-prime.yml") -> bool:
+    def trigger_workflow(self, repo_name: str, workflow_file: str = "zeno.yml") -> bool:
         attempts = max(1, int(os.environ.get("ZENO_WORKFLOW_TRIGGER_RETRIES", "8")))
         delay = max(1, int(os.environ.get("ZENO_WORKFLOW_TRIGGER_RETRY_DELAY_SECONDS", "6")))
         last_error: Exception | None = None
@@ -394,5 +394,4 @@ class GitHubOps:
                     log.warning("Failed to push data to target repo %s: %s", target_data_repo, e)
 
         return True
-
 
