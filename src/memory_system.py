@@ -1,5 +1,5 @@
 """
-NEXUS-PRIME-Ω  Memory System
+ZENO  Memory System
 SQLite-backed persistent memory: beliefs, episodic memories,
 user interactions, lineage, performance, and reflections.
 """
@@ -16,7 +16,7 @@ from typing import List, Dict, Any, Optional
 
 class MemorySystem:
     """
-    SQL-native memory engine for the NEXUS-PRIME entity.
+    SQL-native memory engine for Zeno.
     All data persists across GitHub Actions runs via the
     actions/cache mechanism on data/zeno_memory.db.
     """
@@ -155,12 +155,25 @@ class MemorySystem:
                 engaged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS audited_accounts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                account_key TEXT NOT NULL UNIQUE,
+                author_handle TEXT,
+                source_url TEXT,
+                topic TEXT,
+                action TEXT,
+                metadata TEXT,
+                audited_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
             CREATE INDEX IF NOT EXISTS idx_beliefs_strength
                 ON beliefs(strength DESC);
             CREATE INDEX IF NOT EXISTS idx_memories_timestamp
                 ON memories(timestamp DESC);
             CREATE INDEX IF NOT EXISTS idx_memories_type
                 ON memories(memory_type);
+            CREATE INDEX IF NOT EXISTS idx_audited_accounts_key
+                ON audited_accounts(account_key);
         """)
         self.conn.commit()
 
@@ -675,10 +688,73 @@ class MemorySystem:
             for row in cur.fetchall()
         ]
 
+    def _normalize_account_key(self, author_handle: str = "", source_url: str = "") -> str:
+        handle = (author_handle or "").strip().lower()
+        if handle.startswith("@"):
+            handle = handle[1:]
+        if handle and re.fullmatch(r"[a-z0-9_]{1,30}", handle):
+            return f"x:{handle}"
+        normalized_source = self._normalize_source_identity(source_url)
+        if normalized_source:
+            try:
+                parts = urlsplit(normalized_source)
+                path_parts = [part for part in parts.path.split("/") if part]
+                if parts.netloc.lower().endswith("x.com") and path_parts:
+                    candidate = path_parts[0].lower()
+                    if re.fullmatch(r"[a-z0-9_]{1,30}", candidate):
+                        return f"x:{candidate}"
+            except Exception:
+                pass
+        return ""
+
+    def record_account_audit(
+        self,
+        author_handle: str = "",
+        source_url: str = "",
+        topic: str = "",
+        action: str = "audit",
+        metadata: dict | None = None,
+    ) -> None:
+        account_key = self._normalize_account_key(author_handle, source_url)
+        if not account_key:
+            return
+        payload = json.dumps(metadata) if metadata else None
+        self.conn.execute(
+            """
+            INSERT INTO audited_accounts (account_key, author_handle, source_url, topic, action, metadata)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(account_key) DO UPDATE SET
+                author_handle=excluded.author_handle,
+                source_url=excluded.source_url,
+                topic=excluded.topic,
+                action=excluded.action,
+                metadata=excluded.metadata,
+                audited_at=CURRENT_TIMESTAMP
+            """,
+            (account_key, author_handle, source_url, topic, action, payload),
+        )
+        self.conn.commit()
+
+    def was_account_audited(self, author_handle: str = "", source_url: str = "") -> bool:
+        account_key = self._normalize_account_key(author_handle, source_url)
+        if not account_key:
+            return False
+        cur = self.conn.cursor()
+        cur.execute(
+            """
+            SELECT account_key
+            FROM audited_accounts
+            WHERE account_key = ?
+            LIMIT 1
+            """,
+            (account_key,),
+        )
+        return cur.fetchone() is not None
+
     def get_stats(self) -> Dict:
         cur = self.conn.cursor()
         stats = {}
-        for table in ("beliefs", "memories", "interactions", "lineage", "performance", "reflections", "working_memory", "selector_strategies", "source_assets", "posted_sources", "engaged_sources"):
+        for table in ("beliefs", "memories", "interactions", "lineage", "performance", "reflections", "working_memory", "selector_strategies", "source_assets", "posted_sources", "engaged_sources", "audited_accounts"):
             cur.execute(f"SELECT COUNT(*) FROM {table}")
             stats[table] = cur.fetchone()[0]
         return stats
@@ -686,4 +762,3 @@ class MemorySystem:
     def close(self):
         if self.conn:
             self.conn.close()
-
