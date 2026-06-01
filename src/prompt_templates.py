@@ -267,7 +267,7 @@ Return only a JSON object with this exact shape:
         post_count: int,
         top_belief: str,
     ) -> str:
-        return f"""NEXUS-PRIME-OMEGA REBIRTH REPORT
+        return f"""ZENO REBIRTH REPORT
 
 Iteration: {iteration}
 New Repository: {new_repo}
