@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import datetime, timedelta
 
@@ -100,6 +101,7 @@ SHOPPING_PHRASES = {
 
 class TrendHunter:
     def __init__(self) -> None:
+        self.configured_topics = self._configured_topics()
         self.topic_groups = {
             "entertainment": [
                 "entertainment news",
@@ -138,11 +140,46 @@ class TrendHunter:
                 "crypto market",
             ],
         }
+        if self.configured_topics:
+            self.topic_groups["configured"] = self.configured_topics
+            for topic in self.configured_topics:
+                lowered = topic.lower()
+                MISSION_PHRASES.add(lowered)
+                MISSION_TERMS.update(re.findall(r"[a-z]{3,}", lowered))
         self.seed_topics = [item for values in self.topic_groups.values() for item in values]
+
+    def _configured_topics(self) -> list[str]:
+        raw = os.environ.get("ZENO_MISSION_TOPIC", "").strip()
+        topics: list[str] = []
+        seen = set()
+        for item in re.split(r"[,;\n]+", raw):
+            topic = " ".join(item.split()).strip()
+            if not topic:
+                continue
+            key = topic.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            topics.append(topic)
+        return topics[:12]
 
     def default_queries(self) -> list[str]:
         since = (datetime.utcnow() - timedelta(days=3)).strftime("%Y-%m-%d")
-        return [
+        queries: list[str] = []
+        for topic in self.configured_topics:
+            safe_topic = topic.replace('"', "").strip()
+            if not safe_topic:
+                continue
+            if " " in safe_topic:
+                safe_topic = f'"{safe_topic}"'
+            queries.extend(
+                [
+                    f"{safe_topic} min_faves:80 min_replies:10 lang:en since:{since}",
+                    f"{safe_topic} filter:images min_faves:180 min_retweets:15 min_replies:12 lang:en since:{since}",
+                    f"{safe_topic} filter:videos min_faves:220 min_retweets:20 min_replies:15 lang:en since:{since}",
+                ]
+            )
+        queries.extend([
             f"entertainment news filter:videos min_faves:4200 min_retweets:300 min_replies:55 lang:en since:{since}",
             f"politics OR geopolitics min_faves:120 min_replies:18 lang:en since:{since}",
             f"political meme OR geopolitics meme filter:videos min_faves:4500 min_retweets:360 min_replies:60 lang:en since:{since}",
@@ -154,7 +191,8 @@ class TrendHunter:
             f"politics filter:images min_faves:3800 min_retweets:320 min_replies:55 lang:en since:{since}",
             f"crypto OR bitcoin filter:images min_faves:3800 min_retweets:320 min_replies:50 lang:en since:{since}",
             f"crypto regulation OR bitcoin ETF filter:videos min_faves:2600 min_retweets:220 min_replies:35 lang:en since:{since}",
-        ]
+        ])
+        return queries
 
     def parse_queries(self, raw: str) -> list[str]:
         try:
