@@ -35,7 +35,7 @@ from .trend_hunter import MISSION_PHRASES, MISSION_TERMS, SHOPPING_PHRASES, SHOP
 from .viral_intelligence import ViralIntelligence
 
 
-log = logging.getLogger("final-puss.engine")
+log = logging.getLogger("zeno.engine")
 
 
 PUBLIC_BOILERPLATE_PATTERNS = (
@@ -209,7 +209,7 @@ class ZenoPrime:
         self.deepseek_available = False
         self.browser_llm_disabled_until: dict[str, float] = {}
         github_repo = os.environ.get("GITHUB_REPOSITORY", "").strip()
-        self.current_repo = github_repo.split("/")[-1] if github_repo else "final-puss"
+        self.current_repo = github_repo.split("/")[-1] if github_repo else "zeno"
         self.current_url = f"https://github.com/{github_repo}" if github_repo else ""
         if not self.memory.get_beliefs(limit=1, min_strength=0.0):
             self._seed_initial_beliefs()
@@ -277,7 +277,7 @@ class ZenoPrime:
         if self.dry_run or not _env_enabled("ZENO_DELETE_PREVIOUS_REPO_ON_BOOT", "1"):
             return
         prev_repo = self._read_prev_repo()
-        if not prev_repo or prev_repo in {self.current_repo, "final-puss"}:
+        if not prev_repo or prev_repo in {self.current_repo, "zeno"}:
             return
         if not self.accounts.github_username or not self.accounts.github_token:
             log.warning("Skipping ancestor deletion because GitHub credentials/token are missing")
@@ -1009,6 +1009,8 @@ class ZenoPrime:
     def _source_already_used(self, candidate: dict) -> bool:
         if self._registry_has_any_key(self._candidate_registry_keys(candidate), ("post", "engage")):
             return True
+        if self._account_already_audited(candidate):
+            return True
         source_url = str(candidate.get("source_url", "")).strip()
         image_url = self._candidate_media_url(candidate)
         source_text = str(candidate.get("source_text", "")).strip()
@@ -1035,9 +1037,12 @@ class ZenoPrime:
             metadata=metadata,
         )
         self._append_source_registry("post", candidate, post_text)
+        self._record_account_audit(candidate, "post")
 
     def _source_already_engaged(self, candidate: dict) -> bool:
         if self._registry_has_any_key(self._candidate_registry_keys(candidate), ("post", "engage")):
+            return True
+        if self._account_already_audited(candidate):
             return True
         source_url = str(candidate.get("source_url", "")).strip()
         image_url = self._candidate_media_url(candidate)
@@ -1063,6 +1068,25 @@ class ZenoPrime:
             metadata=metadata,
         )
         self._append_source_registry("engage", candidate, reply_text)
+        self._record_account_audit(candidate, "engage")
+
+    def _account_already_audited(self, candidate: dict) -> bool:
+        author_handle = str(candidate.get("author_handle", "")).strip()
+        source_url = str(candidate.get("source_url", "")).strip()
+        return self.memory.was_account_audited(author_handle=author_handle, source_url=source_url)
+
+    def _record_account_audit(self, candidate: dict, action: str) -> None:
+        self.memory.record_account_audit(
+            author_handle=str(candidate.get("author_handle", "")).strip(),
+            source_url=str(candidate.get("source_url", "")).strip(),
+            topic=str(candidate.get("topic", "")).strip(),
+            action=action,
+            metadata={
+                "iteration": self.iteration,
+                "repo": self.current_repo,
+                "metrics": self._candidate_metrics(candidate),
+            },
+        )
 
     def _normalized_post(self, text: str) -> str:
         return re.sub(r"\s+", " ", (text or "").strip().lower())
@@ -1647,6 +1671,15 @@ class ZenoPrime:
             source_url = str(candidate.get("source_url", "")).strip()
             if not source_url:
                 continue
+            if self._account_already_audited(candidate):
+                self._trace_runtime(
+                    "trend_comment",
+                    "skipped",
+                    reason="account already audited",
+                    source=source_url,
+                    author=candidate.get("author_handle", ""),
+                )
+                continue
             comment = self._generate_engagement_comment(candidate)
             if (
                 not comment
@@ -1923,7 +1956,7 @@ class ZenoPrime:
             repo_name=self.current_repo,
             repo_url=self.current_url,
             snapshot_path=str(snapshot_dir),
-            notes=f"Prepared in final-puss on iteration {self.iteration}",
+            notes=f"Prepared by Zeno on iteration {self.iteration}",
         )
         try:
             pass
@@ -1953,7 +1986,7 @@ class ZenoPrime:
             return
         top_beliefs = self.memory.get_beliefs(limit=1, min_strength=0.0)
         top_belief = top_beliefs[0]["text"] if top_beliefs else "unknown"
-        subject = f"[NEXUS] Iteration {rebirth_data['next_iteration']} Awakening"
+        subject = f"[ZENO] Iteration {rebirth_data['next_iteration']} Awakening"
         body = PromptTemplates.rebirth_email_summary(
             iteration=rebirth_data["next_iteration"],
             new_repo=rebirth_data["new_repo_name"],
