@@ -1,13 +1,13 @@
 """
 NEXUS-PRIME-Ω  Self-Healing Engine  v2
 ========================================
-When NexusPrime hits any error, this module:
+When ZenoPrime hits any error, this module:
   1. Captures the full traceback + relevant source file
   2. Asks its LOCAL brain (Ollama/tinyllama) for a fix
   3. If Ollama fails → opens a FRESH browser → asks ChatGPT
   4. If ChatGPT fails → tries DeepSeek
   5. Validates the fix (ast.parse), applies it, restarts
-  6. UNLIMITED retries — NexusPrime NEVER gives up
+  6. UNLIMITED retries — ZenoPrime NEVER gives up
 
 Also provides think() — step-by-step LLM reasoning for the entity.
 """
@@ -26,7 +26,7 @@ import subprocess
 from pathlib import Path
 from datetime import datetime
 
-log = logging.getLogger("Nexus-SelfHeal")
+log = logging.getLogger("Zeno-SelfHeal")
 
 # --------------------------------------------------------------------------- #
 #  LLM prompt builder — short and focused                                      #
@@ -50,7 +50,7 @@ def _build_prompt(error_msg: str, tb: str, file_path: str, file_src: str) -> str
 
 def _build_step_prompt(situation: str, context: str = "") -> str:
     return (
-        f"You are NexusPrime, an autonomous AI agent.\n"
+        f"You are ZenoPrime, an autonomous AI agent.\n"
         f"Current situation: {situation}\n"
         f"Context: {context}\n"
         f"What is the exact next action to take? Be specific and brief (1-3 sentences)."
@@ -305,14 +305,14 @@ def _apply_fix(file_path: str, fixed_code: str) -> bool:
     return True
 
 # --------------------------------------------------------------------------- #
-#  think() — step-by-step LLM reasoning for NexusPrime                        #
+#  think() — step-by-step LLM reasoning for ZenoPrime                        #
 # --------------------------------------------------------------------------- #
 
 def think(situation: str, context: str = "",
           driver=None, model: str = "tinyllama") -> str:
     """
     Ask the LLM what to do next given the current situation.
-    NexusPrime calls this when stuck or before key actions.
+    ZenoPrime calls this when stuck or before key actions.
 
     Returns a plain-English action description.
     """
@@ -350,9 +350,9 @@ def think(situation: str, context: str = "",
 
 class SelfHealer:
     """
-    NexusPrime's self-repair module.
+    ZenoPrime's self-repair module.
 
-    Unlimited retries — NexusPrime NEVER gives up.
+    Unlimited retries — ZenoPrime NEVER gives up.
     Each heal attempt tries: Brain → Ollama → ChatGPT → DeepSeek.
     Brain (BrainPlanner) is always asked FIRST — it reasons about the error
     using the same local Ollama pipeline. Only if brain fails does it
@@ -399,7 +399,7 @@ class SelfHealer:
 
         self._attempt += 1
         log.info("=" * 55)
-        log.info(f"SELF-HEAL #{self._attempt} — NexusPrime repairing itself")
+        log.info(f"SELF-HEAL #{self._attempt} — ZenoPrime repairing itself")
         log.info(f"Error: {type(exc).__name__}: {exc}")
         log.info("=" * 55)
 
@@ -488,7 +488,7 @@ class SelfHealer:
         })
 
         if applied:
-            log.info("Fix applied! Restarting NexusPrime...")
+            log.info("Fix applied! Restarting ZenoPrime...")
             self._restart()
         return applied
 
@@ -496,7 +496,7 @@ class SelfHealer:
         matches = re.findall(r'File "([^"]+\.py)", line', tb_str)
         our_files = [
             f for f in matches
-            if "src/" in f or "nexus_prime.py" in f
+            if "src/" in f or "zeno.py" in f
         ]
         if our_files:
             return our_files[-1]

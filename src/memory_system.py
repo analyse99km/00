@@ -18,10 +18,10 @@ class MemorySystem:
     """
     SQL-native memory engine for the NEXUS-PRIME entity.
     All data persists across GitHub Actions runs via the
-    actions/cache mechanism on data/nexus_memory.db.
+    actions/cache mechanism on data/zeno_memory.db.
     """
 
-    def __init__(self, db_path: str = "data/nexus_memory.db"):
+    def __init__(self, db_path: str = "data/zeno_memory.db"):
         self.db_path = db_path
         self.conn: Optional[sqlite3.Connection] = None
         self._init_database()

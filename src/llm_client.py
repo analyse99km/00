@@ -9,7 +9,7 @@ import urllib.error
 import urllib.request
 
 
-log = logging.getLogger("nexus.llm")
+log = logging.getLogger("zeno.llm")
 
 
 DEFAULT_ROLE_MODELS = {
@@ -20,10 +20,10 @@ DEFAULT_ROLE_MODELS = {
 }
 
 ROLE_ENV_MAP = {
-    "chat": "NEXUS_MODEL_CHAT",
-    "summary": "NEXUS_MODEL_SUMMARY",
-    "debug": "NEXUS_MODEL_DEBUG",
-    "quick": "NEXUS_MODEL_QUICK",
+    "chat": "ZENO_MODEL_CHAT",
+    "summary": "ZENO_MODEL_SUMMARY",
+    "debug": "ZENO_MODEL_DEBUG",
+    "quick": "ZENO_MODEL_QUICK",
 }
 
 
@@ -44,11 +44,11 @@ class LocalLLM:
         self.local_ollama_binary = shutil.which("ollama") or ""
         fallback_models = _parse_models(
             os.environ.get(
-                "NEXUS_OLLAMA_MODELS",
+                "ZENO_OLLAMA_MODELS",
                 "deepseek-coder:1.3b,qwen2.5-coder:1.5b,phi3:mini,tinyllama",
             )
         )
-        primary = (model or os.environ.get("NEXUS_PRIMARY_MODEL", "deepseek-coder:1.3b")).strip()
+        primary = (model or os.environ.get("ZENO_PRIMARY_MODEL", "deepseek-coder:1.3b")).strip()
         self.base_candidates = [primary, *[item for item in fallback_models if item != primary]]
         self.role_models: dict[str, list[str]] = {}
         for role, defaults in DEFAULT_ROLE_MODELS.items():
@@ -108,7 +108,7 @@ class LocalLLM:
             return ""
         candidates = self.candidates_for_role(role)
         log.info("LLM route role=%s candidates=%s", role, ",".join(candidates[:3]))
-        local_timeout = max(5, _env_int("NEXUS_LOCAL_LLM_TIMEOUT_SECONDS", timeout))
-        remote_timeout = max(5, _env_int("NEXUS_REMOTE_LLM_TIMEOUT_SECONDS", timeout))
+        local_timeout = max(5, _env_int("ZENO_LOCAL_LLM_TIMEOUT_SECONDS", timeout))
+        remote_timeout = max(5, _env_int("ZENO_REMOTE_LLM_TIMEOUT_SECONDS", timeout))
 
         return ""

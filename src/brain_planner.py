@@ -30,7 +30,7 @@ import shutil
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional
 
-log = logging.getLogger("Nexus-Brain")
+log = logging.getLogger("Zeno-Brain")
 
 
 # ========================================================================= #
@@ -42,7 +42,7 @@ def _ollama(prompt: str, model: str = "tinyllama", timeout: int = 60) -> str:
     """Try Ollama. Returns empty string if unavailable."""
     if not shutil.which("ollama"):
         return ""
-    configured = os.environ.get("NEXUS_OLLAMA_MODELS", "tinyllama,deepseek-coder:1.3b,phi3:mini")
+    configured = os.environ.get("ZENO_OLLAMA_MODELS", "tinyllama,deepseek-coder:1.3b,phi3:mini")
     fallback_models = [item.strip() for item in configured.split(",") if item.strip()]
     for m in [model, *fallback_models]:
         try:
@@ -286,7 +286,7 @@ class BrainPlanner:
 
 
 
-    NexusPrime's reasoning brain.
+    ZenoPrime's reasoning brain.
 
 
 
@@ -337,7 +337,7 @@ class BrainPlanner:
 
 
 
-        # NexusPrime's identity — always injected into LLM context
+        # ZenoPrime's identity — always injected into LLM context
 
 
 
@@ -345,15 +345,15 @@ class BrainPlanner:
 
 
 
-            "I am NexusPrime1112. "
+            "I am ZenoPrime1112. "
 
 
 
-            "Twitter: NexusPrime1112 / NEXUSPRIME--1112. "
+            "Twitter: ZenoPrime1112 / NEXUSPRIME--1112. "
 
 
 
-            "GitHub: NexusPrime1112 / NEXUSPRIME--1112. "
+            "GitHub: ZenoPrime1112 / NEXUSPRIME--1112. "
 
 
 
@@ -361,7 +361,7 @@ class BrainPlanner:
 
 
 
-            "ProtonMail: nexusprime1112@proton.me / NEXUSPRIME--1112k. "
+            "ProtonMail: zenoprime1112@proton.me / NEXUSPRIME--1112k. "
 
 
 
@@ -825,7 +825,7 @@ class BrainPlanner:
 
 
 
-            f"You are NexusPrime, an AI agent controlling a browser.\n"
+            f"You are ZenoPrime, an AI agent controlling a browser.\n"
 
 
 
@@ -993,7 +993,7 @@ class BrainPlanner:
 
 
 
-                f"You are NexusPrime, a browser automation expert.\n"
+                f"You are ZenoPrime, a browser automation expert.\n"
 
 
 
@@ -1271,7 +1271,7 @@ class BrainPlanner:
 
 
 
-            f"You are NexusPrime, an AI agent.\n"
+            f"You are ZenoPrime, an AI agent.\n"
 
 
 

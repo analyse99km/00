@@ -261,7 +261,7 @@ class SeleniumController:
         )
 
     def _force_close_browser_processes(self, context: str = "browser recovery") -> None:
-        if os.environ.get("NEXUS_FORCE_CLOSE_BROWSER_ON_LOCK", "1").strip().lower() not in {"1", "true", "yes", "on"}:
+        if os.environ.get("ZENO_FORCE_CLOSE_BROWSER_ON_LOCK", "1").strip().lower() not in {"1", "true", "yes", "on"}:
             return
         log.warning("Force-closing Chromium/ChromeDriver after %s", context)
         if os.name == "nt":
@@ -576,8 +576,8 @@ class SeleniumController:
         self.fingerprint = bootstrap.fingerprint
         self.browser_backend = getattr(bootstrap, "backend", "")
         try:
-            self.driver.set_page_load_timeout(int(os.environ.get("NEXUS_BROWSER_PAGE_LOAD_TIMEOUT_SECONDS", "45")))
-            self.driver.set_script_timeout(int(os.environ.get("NEXUS_BROWSER_SCRIPT_TIMEOUT_SECONDS", "30")))
+            self.driver.set_page_load_timeout(int(os.environ.get("ZENO_BROWSER_PAGE_LOAD_TIMEOUT_SECONDS", "45")))
+            self.driver.set_script_timeout(int(os.environ.get("ZENO_BROWSER_SCRIPT_TIMEOUT_SECONDS", "30")))
         except Exception as exc:
             log.warning("Could not apply browser timeouts: %s", exc)
         return self.driver
@@ -865,7 +865,7 @@ class SeleniumController:
 
     def _x_profile_handle(self) -> str:
         raw = (
-            os.environ.get("NEXUS_X_USERNAME", "")
+            os.environ.get("ZENO_X_USERNAME", "")
             or os.environ.get("TWITTER_USERNAME", "")
             or os.environ.get("X_USERNAME", "")
         )
@@ -1031,7 +1031,7 @@ class SeleniumController:
         if self.driver is None or not query.strip():
             return []
         encoded = urllib.parse.quote(query, safe="")
-        mode = os.environ.get("NEXUS_X_SEARCH_MODE", "top").strip().lower() or "top"
+        mode = os.environ.get("ZENO_X_SEARCH_MODE", "top").strip().lower() or "top"
         try:
             self.driver.get(f"https://x.com/search?q={encoded}&src=typed_query&f={mode}")
             _delay(4, 7)
@@ -1253,7 +1253,7 @@ class SeleniumController:
             if os.name != "nt" and hasattr(signal, "SIGALRM"):
                 previous_alarm_handler = signal.getsignal(signal.SIGALRM)
                 signal.signal(signal.SIGALRM, _reply_timeout)
-                signal.alarm(max(30, int(os.environ.get("NEXUS_REPLY_OPERATION_TIMEOUT_SECONDS", "90"))))
+                signal.alarm(max(30, int(os.environ.get("ZENO_REPLY_OPERATION_TIMEOUT_SECONDS", "90"))))
                 alarm_armed = True
             self.driver.get(tweet_url)
             box = self._find_first(["[data-testid='tweetTextarea_0']", "div[role='textbox']"], timeout=20)

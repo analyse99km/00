@@ -4,7 +4,7 @@ from __future__ import annotations
 class _Mx:
     @staticmethod
     def _who() -> str:
-        return "Operational memory scaffold for Nexus Prime."
+        return "Operational memory scaffold for Zeno."
 
     @staticmethod
     def _know() -> list[str]:

@@ -78,7 +78,7 @@ GENERIC_PUBLIC_TEXT_PATTERNS = (
     r"\bthe aesthetic is unmatched\b",
     r"\bthe energy here is flawless\b",
     r"\bless noise\.?\s+more signal\b",
-    r"\bstay\s+(?:poco|zara|nexus)\b",
+    r"\bstay\s+(?:poco|zara|zeno)\b",
     r"\bcandlesticks?\s+are\s+the\s+distraction\b",
     r"\bpositioning\s+is\s+the\s+real\s+plot\b",
     r"\bthe\s+quiet\s+signal\s+is\s+in\s+the\s+adoption\s+curve\b",
@@ -134,8 +134,8 @@ PROMPT_ECHO_PATTERNS = (
     r"\b(?:noted|understood)\s*[.;:]\s*(?:the\s+assistant|i\s+will|this\s+account)\b",
     r"\bexample\s*:",
     r"\[(?:internal|voice\s+rule|system|hidden)[^\]]*\]",
-    r"(?i)\b(?:zara|poco|nexus)problems\'\s+public\s+voice\b",
-    r"(?i)\b(?:zara|poco|nexus)\s+said\s*:",
+    r"(?i)\b(?:zara|poco|zeno)problems\'\s+public\s+voice\b",
+    r"(?i)\b(?:zara|poco|zeno)\s+said\s*:",
     r"(?i)\bquiet\s+signal\b",
     r"(?i)^topic\s*:",
     r"(?i)existing\s+replies",
@@ -179,7 +179,7 @@ def _json_candidates(raw: str) -> list[str]:
     return items
 
 
-class NexusPrime:
+class ZenoPrime:
     def __init__(self, data_dir: Path, profile_dir: Path, headless: bool = True, dry_run: bool = False):
         self.project_root = PROJECT_ROOT
         self.data_dir = Path(data_dir)
@@ -187,7 +187,7 @@ class NexusPrime:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.iteration = self._load_iteration()
         self.accounts = AccountsConfig.load()
-        self.memory = MemorySystem(self.data_dir / "nexus_memory.db")
+        self.memory = MemorySystem(self.data_dir / "zeno_memory.db")
         self.entropy = QuantumEntropy()
         self.concepts = ConceptSelector(self.memory, self.entropy)
         self.llm = LocalLLM()
@@ -232,7 +232,7 @@ class NexusPrime:
 
     def _seed_initial_beliefs(self) -> None:
         beliefs = [
-            ("Nexus Prime is a persistent digital organism, not a disposable response.", "core", 0.9),
+            ("Zeno is a persistent digital organism, not a disposable response.", "core", 0.9),
             ("Cryptography is the last honest science.", "philosophy", 0.7),
             ("Memory survives the vessel.", "core", 0.9),
             ("Persistence beats spectacle.", "core", 0.8),
@@ -274,7 +274,7 @@ class NexusPrime:
             pass
 
     def cleanup_previous_birth(self) -> None:
-        if self.dry_run or not _env_enabled("NEXUS_DELETE_PREVIOUS_REPO_ON_BOOT", "1"):
+        if self.dry_run or not _env_enabled("ZENO_DELETE_PREVIOUS_REPO_ON_BOOT", "1"):
             return
         prev_repo = self._read_prev_repo()
         if not prev_repo or prev_repo in {self.current_repo, "final-puss"}:
@@ -323,7 +323,7 @@ class NexusPrime:
         log.info("Runtime stage | %s | %s | %s", stage, status, details or {})
 
     def _snapshot_retention_limit(self) -> int:
-        raw = os.environ.get("NEXUS_SNAPSHOT_RETENTION", "8").strip()
+        raw = os.environ.get("ZENO_SNAPSHOT_RETENTION", "8").strip()
         try:
             return max(1, int(raw))
         except Exception:
@@ -363,13 +363,13 @@ class NexusPrime:
             log.warning("No GitHub token available for CPR repull")
             return False
 
-        repo_url = os.environ.get("NEXUS_CHROMIUM_PROFILE_REPO", "https://github.com/NexusPrime1112/cpr.git")
+        repo_url = os.environ.get("ZENO_CHROMIUM_PROFILE_REPO", "https://github.com/ZenoPrime1112/cpr.git")
         quoted_token = urllib.parse.quote(token, safe="")
         auth_url = repo_url.replace("https://", f"https://x-access-token:{quoted_token}@")
 
         # 3. Re-clone using a temp dir to be safe
         try:
-            with tempfile.TemporaryDirectory(prefix="nexus_cpr_") as temp_dir:
+            with tempfile.TemporaryDirectory(prefix="zeno_cpr_") as temp_dir:
                 temp_root = Path(temp_dir)
                 log.info("Cloning CPR profile repository dynamically...")
                 result = subprocess.run(
@@ -514,7 +514,7 @@ class NexusPrime:
         return bool(getattr(self, f"{provider}_available", False))
 
     def _mark_browser_llm_failure(self, provider: str, reason: str) -> None:
-        cooldown = _env_int(f"NEXUS_{provider.upper()}_BROWSER_LLM_COOLDOWN_SECONDS", 900)
+        cooldown = _env_int(f"ZENO_{provider.upper()}_BROWSER_LLM_COOLDOWN_SECONDS", 900)
         self.browser_llm_disabled_until[provider] = time.time() + max(60, cooldown)
         setattr(self, f"{provider}_available", False)
         self._trace_runtime("browser_llm", "provider_failed", provider=provider, reason=reason[:180], cooldown_seconds=max(60, cooldown))
@@ -605,7 +605,7 @@ class NexusPrime:
             r"\bi am an ai\b",
             r"\bi'm an ai\b",
             r"\bzara ai\b",
-            r"\bnexus ai\b",
+            r"\bzeno ai\b",
             r"\bas a bot\b",
             r"\bi am a bot\b",
             r"\bi'm a bot\b",
@@ -620,7 +620,7 @@ class NexusPrime:
             r"\bas a human\b",
             r"\breal human\b",
             r"\bzara says\b",
-            r"\bnexus says\b",
+            r"\bzeno says\b",
             r"\bgemini says\b",
             r"\bchatgpt says\b",
             r"\bdeepseek says\b",
@@ -651,19 +651,19 @@ class NexusPrime:
         if _looks_like_prompt_echo(cleaned):
             return ""
         cleaned = re.sub(
-            r"^\s*(?:zara|nexus|gemini|chatgpt|deepseek|claude|anthropic|assistant)\s*(?:says|writes|states|posted|replied)\s*[:,\-–—]?\s*",
+            r"^\s*(?:zara|zeno|gemini|chatgpt|deepseek|claude|anthropic|assistant)\s*(?:says|writes|states|posted|replied)\s*[:,\-–—]?\s*",
             "",
             cleaned,
             flags=re.IGNORECASE,
         )
         cleaned = re.sub(
-            r"^\s*(?:zara|nexus|gemini|chatgpt|deepseek|claude|anthropic|assistant)\s*(?:said|wrote|responded)\s*[:,\-–—]?\s*",
+            r"^\s*(?:zara|zeno|gemini|chatgpt|deepseek|claude|anthropic|assistant)\s*(?:said|wrote|responded)\s*[:,\-–—]?\s*",
             "",
             cleaned,
             flags=re.IGNORECASE,
         )
         cleaned = re.sub(
-            r"\b(?:as an ai|i am an ai|i'm an ai|zara ai|nexus ai|as a bot|i am a bot|i'm a bot|as a language model|digital organism|automated account|automation|software)\b[:,]?\s*",
+            r"\b(?:as an ai|i am an ai|i'm an ai|zara ai|zeno ai|as a bot|i am a bot|i'm a bot|as a language model|digital organism|automated account|automation|software)\b[:,]?\s*",
             "",
             cleaned,
             flags=re.IGNORECASE,
@@ -722,8 +722,8 @@ class NexusPrime:
         cleaned = re.sub(r"^(?:@\w+\s+){1,3}", "", cleaned)
         cleaned = re.sub(r"^(post|reply|tweet)\s*:\s*", "", cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r"(?i)\b(?:as\s+an\s+ai|language\s+model|gemini\s+said|i\s+am\s+an\s+ai|i\s+cannot\s+provide)\b.*", "", cleaned)
-        cleaned = re.sub(r"(?i)^(?:voice|system|prompt):\s*hey!\s+i'm\s+(?:nexus\s+prime|zara).*", "", cleaned)
-        cleaned = re.sub(r"(?i)^hey!\s+i'm\s+(?:nexus\s+prime|zara).*", "", cleaned)
+        cleaned = re.sub(r"(?i)^(?:voice|system|prompt):\s*hey!\s+i'm\s+(?:zeno\s+prime|zara).*", "", cleaned)
+        cleaned = re.sub(r"(?i)^hey!\s+i'm\s+(?:zeno\s+prime|zara).*", "", cleaned)
         cleaned = re.sub(r"\[.*?\]", "", cleaned)
         cleaned = re.sub(r"\b\d+(?:\.\d+)?\s*[KMB]?\s+(?:views?|likes?|reposts?|retweets?|replies?)\b", "", cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r"https?://\S+", "", cleaned, flags=re.IGNORECASE)
@@ -856,7 +856,7 @@ class NexusPrime:
         )
 
     def research_trends(self) -> list[dict]:
-        if not _env_enabled("NEXUS_ENABLE_TREND_RESEARCH", "1"):
+        if not _env_enabled("ZENO_ENABLE_TREND_RESEARCH", "1"):
             return []
         queries = self.build_trend_queries()
         self._trace_runtime("trend_queries", "ready", count=len(queries))
@@ -868,15 +868,15 @@ class NexusPrime:
                 self._trace_runtime("trend_research", "fallback", reason="twitter session unavailable")
                 collected = self.trend_hunter.fallback_results(queries)
             else:
-                query_limit = max(1, min(len(queries), _env_int("NEXUS_TREND_QUERY_LIMIT", 8)))
-                hits_per_query = max(3, min(12, _env_int("NEXUS_X_SEARCH_RESULTS_PER_QUERY", 8)))
+                query_limit = max(1, min(len(queries), _env_int("ZENO_TREND_QUERY_LIMIT", 8)))
+                hits_per_query = max(3, min(12, _env_int("ZENO_X_SEARCH_RESULTS_PER_QUERY", 8)))
                 for query in queries[:query_limit]:
                     hits = self.browser.search_x(query, limit=hits_per_query)
                     collected.extend(hits)
                     time.sleep(2)
         if not collected:
             collected = self.trend_hunter.fallback_results(queries)
-        card_limit = max(10, min(80, _env_int("NEXUS_TREND_CARD_LIMIT", 40)))
+        card_limit = max(10, min(80, _env_int("ZENO_TREND_CARD_LIMIT", 40)))
         cards = self.viral.build_cards(collected, limit=card_limit)
         before_topic_filter = len(cards)
         cards = [card for card in cards if not self._candidate_off_topic_reason(card)]
@@ -909,7 +909,7 @@ class NexusPrime:
         for card in fresh_cards:
             add_card(card)
 
-        for item in self.memory.get_recent_source_assets(limit=max(12, _env_int("NEXUS_RECENT_SOURCE_POOL_LIMIT", 50))):
+        for item in self.memory.get_recent_source_assets(limit=max(12, _env_int("ZENO_RECENT_SOURCE_POOL_LIMIT", 50))):
             metadata = item.get("metadata") or {}
             add_card(
                 {
@@ -1133,7 +1133,7 @@ class NexusPrime:
             return "shopping drift"
         tokens = self._text_tokens(blob)
         if not ((tokens & MISSION_TERMS) or any(phrase in lowered for phrase in MISSION_PHRASES)):
-            return "outside Nexus Prime topic lanes"
+            return "outside Zeno topic lanes"
         return ""
 
     def _candidate_has_media(self, candidate: dict) -> bool:
@@ -1185,7 +1185,7 @@ class NexusPrime:
             return False
         if candidate.get("simulated"):
             return True
-        require_media = _env_enabled("NEXUS_REQUIRE_MEDIA_FOR_X_POSTS", "1")
+        require_media = _env_enabled("ZENO_REQUIRE_MEDIA_FOR_X_POSTS", "1")
         if require_media and not self._candidate_has_media(candidate):
             return False
         return True
@@ -1523,9 +1523,9 @@ class NexusPrime:
         post = ""
         media_paths: list[Path] = []
         max_attempts = 3
-        require_media = _env_enabled("NEXUS_REQUIRE_MEDIA_FOR_X_POSTS", "1")
+        require_media = _env_enabled("ZENO_REQUIRE_MEDIA_FOR_X_POSTS", "1")
         for item in ranked_candidates[:max_attempts]:
-            if item.get("simulated") and not (self.dry_run or _env_enabled("NEXUS_ALLOW_SIMULATED_TRENDS", "0")):
+            if item.get("simulated") and not (self.dry_run or _env_enabled("ZENO_ALLOW_SIMULATED_TRENDS", "0")):
                 continue
             candidate_post = self._rephrase_candidate(item)
             if not candidate_post:
@@ -1546,7 +1546,7 @@ class NexusPrime:
             return ""
 
         posted = False
-        publish_enabled = _env_enabled("NEXUS_ENABLE_X_POSTS", "1")
+        publish_enabled = _env_enabled("ZENO_ENABLE_X_POSTS", "1")
         self._trace_runtime(
             "post_generation",
             "ready",
@@ -1594,13 +1594,13 @@ class NexusPrime:
         return post
 
     def _reset_public_comment_budget(self, reason: str) -> int:
-        budget = max(0, _env_random_int("NEXUS_COMMENTS_BETWEEN_POSTS_MIN", "NEXUS_COMMENTS_BETWEEN_POSTS_MAX", 4, 8))
+        budget = max(0, _env_random_int("ZENO_COMMENTS_BETWEEN_POSTS_MIN", "ZENO_COMMENTS_BETWEEN_POSTS_MAX", 4, 8))
         self.public_comment_budget_remaining = budget
         self._trace_runtime("public_comment_budget", "reset", reason=reason, budget=budget)
         return budget
 
     def _comment_batch_size(self) -> int:
-        return max(1, _env_random_int("NEXUS_COMMENT_BATCH_MIN", "NEXUS_COMMENT_BATCH_MAX", 1, 2))
+        return max(1, _env_random_int("ZENO_COMMENT_BATCH_MIN", "ZENO_COMMENT_BATCH_MAX", 1, 2))
 
     def public_image_comment_cycle(self, reason: str = "scheduled") -> dict:
         if self.public_comment_budget_remaining <= 0:
@@ -1621,24 +1621,24 @@ class NexusPrime:
         return result
 
     def run_initial_public_image_burst(self, reason: str = "post") -> None:
-        min_cycles = max(0, _env_int("NEXUS_INITIAL_COMMENT_BURST_CYCLES_MIN", 2))
-        max_cycles = max(min_cycles, _env_int("NEXUS_INITIAL_COMMENT_BURST_CYCLES_MAX", 5))
+        min_cycles = max(0, _env_int("ZENO_INITIAL_COMMENT_BURST_CYCLES_MIN", 2))
+        max_cycles = max(min_cycles, _env_int("ZENO_INITIAL_COMMENT_BURST_CYCLES_MAX", 5))
         cycles = random.randint(min_cycles, max_cycles) if max_cycles else 0
         for cycle in range(cycles):
             if self.public_comment_budget_remaining <= 0:
                 break
             self.public_image_comment_cycle(reason=f"{reason}_burst")
             if not self.dry_run and cycle + 1 < cycles and self.public_comment_budget_remaining > 0:
-                time.sleep(max(0, _env_random_int("NEXUS_INITIAL_COMMENT_BURST_COOLDOWN_MIN_SECONDS", "NEXUS_INITIAL_COMMENT_BURST_COOLDOWN_MAX_SECONDS", 15, 45)))
+                time.sleep(max(0, _env_random_int("ZENO_INITIAL_COMMENT_BURST_COOLDOWN_MIN_SECONDS", "ZENO_INITIAL_COMMENT_BURST_COOLDOWN_MAX_SECONDS", 15, 45)))
 
     def engage_with_trending_posts(self, max_comments_override: int | None = None) -> dict:
         import random; max_comments_override = max_comments_override or random.randint(10, 30)
-        if not _env_enabled("NEXUS_ENABLE_TREND_COMMENTS", "1"):
+        if not _env_enabled("ZENO_ENABLE_TREND_COMMENTS", "1"):
             return {"commented": 0, "cards": []}
         trend_cards = self.research_trends()
         candidates = self._engagement_candidates(trend_cards)
-        max_comments_cap = max(1, _env_int("NEXUS_MAX_TREND_COMMENTS_PER_CYCLE_CAP", 6))
-        configured_max = max_comments_override if max_comments_override is not None else _env_int("NEXUS_MAX_TREND_COMMENTS_PER_CYCLE", 2)
+        max_comments_cap = max(1, _env_int("ZENO_MAX_TREND_COMMENTS_PER_CYCLE_CAP", 6))
+        configured_max = max_comments_override if max_comments_override is not None else _env_int("ZENO_MAX_TREND_COMMENTS_PER_CYCLE", 2)
         max_comments = max(1, min(max_comments_cap, int(configured_max)))
         engaged = 0
         attempts = 0
@@ -1657,7 +1657,7 @@ class NexusPrime:
             ):
                 continue
             attempts += 1
-            publish_enabled = _env_enabled("NEXUS_ENABLE_X_COMMENTS", "1")
+            publish_enabled = _env_enabled("ZENO_ENABLE_X_COMMENTS", "1")
             posted = False
             if self.dry_run or not publish_enabled:
                 posted = True
@@ -1691,12 +1691,12 @@ class NexusPrime:
                 }
             )
             if posted and not self.dry_run:
-                time.sleep(max(8, _env_int("NEXUS_COMMENT_COOLDOWN_SECONDS", 18)))
+                time.sleep(max(8, _env_int("ZENO_COMMENT_COOLDOWN_SECONDS", 18)))
         self._trace_runtime("trend_comments", "complete", commented=engaged, attempted=attempts)
         return {"commented": engaged, "cards": trend_cards, "records": records}
 
     def check_mentions(self) -> int:
-        if not _env_enabled("NEXUS_ENABLE_X_REPLIES", "1"):
+        if not _env_enabled("ZENO_ENABLE_X_REPLIES", "1"):
             return 0
         if not self._restore_site_session("twitter", reason="mentions"):
             return 0
@@ -1847,7 +1847,7 @@ class NexusPrime:
         self.memory.weaken_beliefs()
 
     def _next_repo_name(self, next_iteration: int) -> str:
-        template = os.environ.get("NEXUS_REPO_TEMPLATE", "v{iteration}").strip() or "v{iteration}"
+        template = os.environ.get("ZENO_REPO_TEMPLATE", "v{iteration}").strip() or "v{iteration}"
         try:
             candidate = template.format(iteration=next_iteration, current_repo=self.current_repo, current=self.current_repo)
         except Exception:
@@ -1858,7 +1858,7 @@ class NexusPrime:
         return candidate
 
     def _max_iteration(self) -> int:
-        raw = os.environ.get("NEXUS_MAX_ITERATION", "0").strip()
+        raw = os.environ.get("ZENO_MAX_ITERATION", "0").strip()
         try:
             return max(0, int(raw))
         except Exception:
@@ -1869,17 +1869,17 @@ class NexusPrime:
             "GH_PAT": self.accounts.github_token,
             "GH_PAT_FG": self.accounts.github_token_fg,
             "OLLAMA_HOST": os.environ.get("OLLAMA_HOST", "").strip(),
-            "NEXUS_X_USERNAME": self.accounts.twitter_username,
-            "NEXUS_X_PASSWORD": self.accounts.twitter_password,
-            "NEXUS_X_DM_PASSCODE": self.accounts.twitter_dm_passcode,
-            "NEXUS_GOOGLE_EMAIL": self.accounts.google_email,
-            "NEXUS_GOOGLE_PASSWORD": self.accounts.google_password,
-            "NEXUS_PROTON_USERNAME": self.accounts.proton_username,
-            "NEXUS_PROTON_PASSWORD": self.accounts.proton_password,
-            "NEXUS_CHATGPT_EMAIL": self.accounts.chatgpt_email,
-            "NEXUS_CHATGPT_PASSWORD": self.accounts.chatgpt_password,
-            "NEXUS_DEEPSEEK_EMAIL": self.accounts.deepseek_email,
-            "NEXUS_DEEPSEEK_PASSWORD": self.accounts.deepseek_password,
+            "ZENO_X_USERNAME": self.accounts.twitter_username,
+            "ZENO_X_PASSWORD": self.accounts.twitter_password,
+            "ZENO_X_DM_PASSCODE": self.accounts.twitter_dm_passcode,
+            "ZENO_GOOGLE_EMAIL": self.accounts.google_email,
+            "ZENO_GOOGLE_PASSWORD": self.accounts.google_password,
+            "ZENO_PROTON_USERNAME": self.accounts.proton_username,
+            "ZENO_PROTON_PASSWORD": self.accounts.proton_password,
+            "ZENO_CHATGPT_EMAIL": self.accounts.chatgpt_email,
+            "ZENO_CHATGPT_PASSWORD": self.accounts.chatgpt_password,
+            "ZENO_DEEPSEEK_EMAIL": self.accounts.deepseek_email,
+            "ZENO_DEEPSEEK_PASSWORD": self.accounts.deepseek_password,
         }
 
     def _logic_only_cycle(self) -> dict:
@@ -1896,7 +1896,7 @@ class NexusPrime:
             }
             self.memory.close()
             return result
-        wait_seconds = float(os.environ.get("NEXUS_LOOP_WAIT_SECONDS", "5") or "5")
+        wait_seconds = float(os.environ.get("ZENO_LOOP_WAIT_SECONDS", "5") or "5")
         if wait_seconds > 0:
             time.sleep(wait_seconds)
         result = self.prepare_for_rebirth()
@@ -1913,13 +1913,13 @@ class NexusPrime:
             "\n".join(f"{item['text']} ({item['strength']:.2f})" for item in beliefs),
             encoding="utf-8",
         )
-        memory_db = self.data_dir / "nexus_memory.db"
+        memory_db = self.data_dir / "zeno_memory.db"
         if memory_db.exists():
             shutil.copy2(memory_db, snapshot_dir / memory_db.name)
         stats = self.memory.get_stats()
         next_iteration = self.iteration + 1
         next_repo = self._next_repo_name(next_iteration)
-        private_repo = _env_enabled("NEXUS_REPO_PRIVATE", "0")
+        private_repo = _env_enabled("ZENO_REPO_PRIVATE", "0")
         self.memory.record_lineage(
             iteration=self.iteration,
             repo_name=self.current_repo,
@@ -1989,11 +1989,11 @@ class NexusPrime:
         try:
             created = self.github.create_repo(
                 repo_name=repo_name,
-                description=f"Final Puss Nexus Prime iteration {rebirth_data['next_iteration']}",
+                description=f"Final Puss Zeno iteration {rebirth_data['next_iteration']}",
                 private=private_repo,
             )
             log.info("Repo ready: %s", created.get("html_url", repo_name))
-            profile_dir = None if _env_enabled("NEXUS_GITHUB_LOOP_ONLY", "0") else self.profile_dir
+            profile_dir = None if _env_enabled("ZENO_GITHUB_LOOP_ONLY", "0") else self.profile_dir
             self.github.push_project_snapshot(
                 project_root=self.project_root,
                 repo_name=repo_name,
@@ -2004,7 +2004,7 @@ class NexusPrime:
                 persistent_data_dir=self.data_dir,
             )
             self.github.sync_actions_secrets(repo_name, self._secrets_payload())
-            if _env_enabled("NEXUS_TRIGGER_AFTER_PUSH", "0"):
+            if _env_enabled("ZENO_TRIGGER_AFTER_PUSH", "0"):
                 triggered = False
                 try:
                     triggered = self.github.trigger_workflow(repo_name)
@@ -2018,7 +2018,7 @@ class NexusPrime:
 
     def run_forever(self, hours_per_run: float = 5.5) -> dict:
         run_started_at = time.time()
-        max_runtime_raw = os.environ.get("NEXUS_MAX_RUNTIME_HOURS", "").strip()
+        max_runtime_raw = os.environ.get("ZENO_MAX_RUNTIME_HOURS", "").strip()
         effective_hours = hours_per_run
         if max_runtime_raw:
             try:
@@ -2035,10 +2035,10 @@ class NexusPrime:
             effective_hours,
         )
         self._trace_runtime("run", "start", hours_per_run=hours_per_run, effective_hours=effective_hours, profile=str(self.profile_dir))
-        shutdown_margin = max(300, _env_int("NEXUS_SHUTDOWN_MARGIN_SECONDS", 2400))
+        shutdown_margin = max(300, _env_int("ZENO_SHUTDOWN_MARGIN_SECONDS", 2400))
         end_at = run_started_at + (effective_hours * 3600)
         action_end_at = max(run_started_at, end_at - shutdown_margin)
-        if _env_enabled("NEXUS_GITHUB_LOOP_ONLY", "0"):
+        if _env_enabled("ZENO_GITHUB_LOOP_ONLY", "0"):
             return self._logic_only_cycle()
         if not self.dry_run:
             self._trace_runtime("browser_start", "start")
@@ -2083,14 +2083,14 @@ class NexusPrime:
         post_min = 15
         post_max = 180
         comment_min = 6
-        comment_max = max(comment_min, _env_int("NEXUS_COMMENT_INTERVAL_MAX_MINUTES", 12))
+        comment_max = max(comment_min, _env_int("ZENO_COMMENT_INTERVAL_MAX_MINUTES", 12))
         mention_min = 1
-        mention_max = max(mention_min, _env_int("NEXUS_MENTION_INTERVAL_MAX_MINUTES", 5))
+        mention_max = max(mention_min, _env_int("ZENO_MENTION_INTERVAL_MAX_MINUTES", 5))
         
         now = time.time()
-        next_post_at = now + (_env_random_int("NEXUS_POST_INTERVAL_MIN_MINUTES", "NEXUS_POST_INTERVAL_MAX_MINUTES", post_min, post_max) * 60)
-        next_comment_at = now + (_env_random_int("NEXUS_COMMENT_INTERVAL_MIN_MINUTES", "NEXUS_COMMENT_INTERVAL_MAX_MINUTES", comment_min, comment_max) * 60)
-        next_mention_at = now + (_env_random_int("NEXUS_MENTION_INTERVAL_MIN_MINUTES", "NEXUS_MENTION_INTERVAL_MAX_MINUTES", mention_min, mention_max) * 60)
+        next_post_at = now + (_env_random_int("ZENO_POST_INTERVAL_MIN_MINUTES", "ZENO_POST_INTERVAL_MAX_MINUTES", post_min, post_max) * 60)
+        next_comment_at = now + (_env_random_int("ZENO_COMMENT_INTERVAL_MIN_MINUTES", "ZENO_COMMENT_INTERVAL_MAX_MINUTES", comment_min, comment_max) * 60)
+        next_mention_at = now + (_env_random_int("ZENO_MENTION_INTERVAL_MIN_MINUTES", "ZENO_MENTION_INTERVAL_MAX_MINUTES", mention_min, mention_max) * 60)
         
         self._trace_runtime(
             "schedule",
@@ -2105,7 +2105,7 @@ class NexusPrime:
         self._reset_public_comment_budget("initial_post")
         self.run_initial_public_image_burst("initial_post")
         
-        if _env_enabled("NEXUS_BOOT_SEQUENCE_ONLY", "0"):
+        if _env_enabled("ZENO_BOOT_SEQUENCE_ONLY", "0"):
             if not self.last_posted_ok:
                 raise RuntimeError("X post failed during boot validation")
             self._trace_runtime("boot_sequence", "complete", first_post=first_post[:120])
@@ -2124,16 +2124,16 @@ class NexusPrime:
                     self._reset_public_comment_budget("scheduled_post")
                     self.run_initial_public_image_burst("scheduled_post")
                     now = time.time()
-                    next_post_at = now + (_env_random_int("NEXUS_POST_INTERVAL_MIN_MINUTES", "NEXUS_POST_INTERVAL_MAX_MINUTES", post_min, post_max) * 60)
-                    next_comment_at = now + (_env_random_int("NEXUS_COMMENT_INTERVAL_MIN_MINUTES", "NEXUS_COMMENT_INTERVAL_MAX_MINUTES", comment_min, comment_max) * 60)
+                    next_post_at = now + (_env_random_int("ZENO_POST_INTERVAL_MIN_MINUTES", "ZENO_POST_INTERVAL_MAX_MINUTES", post_min, post_max) * 60)
+                    next_comment_at = now + (_env_random_int("ZENO_COMMENT_INTERVAL_MIN_MINUTES", "ZENO_COMMENT_INTERVAL_MAX_MINUTES", comment_min, comment_max) * 60)
                 if now >= next_comment_at:
                     self.public_image_comment_cycle(reason="scheduled")
                     now = time.time()
-                    next_comment_at = now + (_env_random_int("NEXUS_COMMENT_INTERVAL_MIN_MINUTES", "NEXUS_COMMENT_INTERVAL_MAX_MINUTES", comment_min, comment_max) * 60)
+                    next_comment_at = now + (_env_random_int("ZENO_COMMENT_INTERVAL_MIN_MINUTES", "ZENO_COMMENT_INTERVAL_MAX_MINUTES", comment_min, comment_max) * 60)
                 if now >= next_mention_at:
                     self.check_mentions()
                     now = time.time()
-                    next_mention_at = now + (_env_random_int("NEXUS_MENTION_INTERVAL_MIN_MINUTES", "NEXUS_MENTION_INTERVAL_MAX_MINUTES", mention_min, mention_max) * 60)
+                    next_mention_at = now + (_env_random_int("ZENO_MENTION_INTERVAL_MIN_MINUTES", "ZENO_MENTION_INTERVAL_MAX_MINUTES", mention_min, mention_max) * 60)
             except Exception as exc:
                 self.self_healer.record_failure(exc, "schedule.run_pending() failure")
             next_due = min(next_post_at, next_comment_at, next_mention_at, action_end_at)

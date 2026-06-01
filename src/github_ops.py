@@ -19,7 +19,7 @@ from typing import Iterable
 log = logging.getLogger("final-puss.github")
 
 PERSISTENT_DATA_SUFFIXES = {".db", ".sqlite", ".sqlite3", ".json", ".jsonl", ".txt", ".md", ".csv"}
-VOLATILE_DATA_NAMES = {"nexus.log", "chromedriver.log"}
+VOLATILE_DATA_NAMES = {"zeno.log", "chromedriver.log"}
 PROFILE_SKIP_NAMES = {
     "cache",
     "code cache",
@@ -45,7 +45,7 @@ def data_path_should_copy(relative_path: Path) -> bool:
         return False
     if rel.parts and rel.parts[0].lower() == "snapshots":
         return True
-    if name in {"nexus_memory.db", "iteration.txt", "rebirth_data.json", "self_heal_log.jsonl", "health.json"}:
+    if name in {"zeno_memory.db", "iteration.txt", "rebirth_data.json", "self_heal_log.jsonl", "health.json"}:
         return True
     return rel.suffix.lower() in PERSISTENT_DATA_SUFFIXES
 
@@ -163,9 +163,9 @@ class GitHubOps:
         )
         return status in (204, 404)
 
-    def trigger_workflow(self, repo_name: str, workflow_file: str = "nexus-prime.yml") -> bool:
-        attempts = max(1, int(os.environ.get("NEXUS_WORKFLOW_TRIGGER_RETRIES", "8")))
-        delay = max(1, int(os.environ.get("NEXUS_WORKFLOW_TRIGGER_RETRY_DELAY_SECONDS", "6")))
+    def trigger_workflow(self, repo_name: str, workflow_file: str = "zeno-prime.yml") -> bool:
+        attempts = max(1, int(os.environ.get("ZENO_WORKFLOW_TRIGGER_RETRIES", "8")))
+        delay = max(1, int(os.environ.get("ZENO_WORKFLOW_TRIGGER_RETRY_DELAY_SECONDS", "6")))
         last_error: Exception | None = None
         for attempt in range(1, attempts + 1):
             try:
@@ -297,14 +297,14 @@ class GitHubOps:
                     capture_output=True,
                     text=True,
                     env=env,
-                    timeout=int(os.environ.get("NEXUS_GIT_TIMEOUT_SECONDS", "600")),
+                    timeout=int(os.environ.get("ZENO_GIT_TIMEOUT_SECONDS", "600")),
                 )
                 if result.returncode != 0:
                     raise RuntimeError(f"git {' '.join(args)} failed: {result.stderr[:300]}")
 
             git("init")
-            git("config", "user.name", "Nexus-Prime-Omega")
-            git("config", "user.email", "nexus@prime.omega")
+            git("config", "user.name", "Zeno-Prime-Omega")
+            git("config", "user.email", "zeno@prime.omega")
             git("add", "-A", ".")
             for tracked_path in ("data", "chromium", "iteration.txt", "task.txt", "prev_repo.txt"):
                 if (temp_root / tracked_path).exists():
@@ -319,8 +319,8 @@ class GitHubOps:
                 pass
             git("remote", "add", "origin", remote)
             git("branch", "-M", "main")
-            push_attempts = max(1, int(os.environ.get("NEXUS_GIT_PUSH_RETRIES", "12")))
-            push_delay = max(1, int(os.environ.get("NEXUS_GIT_PUSH_RETRY_DELAY_SECONDS", "5")))
+            push_attempts = max(1, int(os.environ.get("ZENO_GIT_PUSH_RETRIES", "12")))
+            push_delay = max(1, int(os.environ.get("ZENO_GIT_PUSH_RETRY_DELAY_SECONDS", "5")))
             last_error: RuntimeError | None = None
             for attempt in range(1, push_attempts + 1):
                 try:
@@ -348,6 +348,51 @@ class GitHubOps:
                     time.sleep(push_delay)
             if last_error is not None:
                 raise last_error
+
+            # --- ZENO TARGET REPO DATA PUSH LOGIC ---
+            target_data_repo = os.environ.get("ZENO_TARGET_REPO", "").strip()
+            if target_data_repo and "/" in target_data_repo:
+                try:
+                    with tempfile.TemporaryDirectory(prefix="zeno_data_push_") as data_temp_dir:
+                        data_temp_root = Path(data_temp_dir) / "data_repo"
+                        data_temp_root.mkdir(parents=True, exist_ok=True)
+                        
+                        target_data_dir = data_temp_root / "data"
+                        target_data_dir.mkdir(parents=True, exist_ok=True)
+                        (target_data_dir / "snapshots").mkdir(parents=True, exist_ok=True)
+                        
+                        source_data_dir = Path(persistent_data_dir).resolve() if persistent_data_dir else project_root / "data"
+                        self._copy_persistent_data(source_data_dir, target_data_dir)
+                        
+                        remote_data = f"https://{quoted_username}:{quoted_token}@github.com/{target_data_repo}.git"
+                        
+                        def git_data(*args: str) -> None:
+                            res = subprocess.run(
+                                ["git", *args],
+                                cwd=data_temp_root,
+                                capture_output=True, text=True, env=env, timeout=300
+                            )
+                            if res.returncode != 0:
+                                raise RuntimeError(f"git data {' '.join(args)} failed: {res.stderr[:300]}")
+                        
+                        git_data("init")
+                        git_data("config", "user.name", "Zeno Data Collector")
+                        git_data("config", "user.email", "zeno@data.omega")
+                        git_data("add", "-A", ".")
+                        git_data("commit", "-m", f"Data sync from iteration {next_iteration}")
+                        git_data("remote", "add", "origin", remote_data)
+                        git_data("branch", "-M", "main")
+                        
+                        for attempt in range(1, 4):
+                            try:
+                                git_data("push", "-u", "origin", "main", "--force")
+                                log.info("Successfully pushed extracted data to %s", target_data_repo)
+                                break
+                            except Exception as e:
+                                time.sleep(push_delay)
+                except Exception as e:
+                    log.warning("Failed to push data to target repo %s: %s", target_data_repo, e)
+
         return True
 
 

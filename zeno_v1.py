@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Zeno V1 main entry point.
-Built on Nexus Prime v201 architecture, focused on Crypto Startups.
+Built on Zeno v201 architecture, focused on Crypto Startups.
 """
 
 from __future__ import annotations
@@ -96,16 +96,16 @@ def main() -> None:
 
     entity = None
     try:
-        from src.ai_engine import NexusPrime # Using the v201 engine structure
+        from src.ai_engine import ZenoPrime # Using the v201 engine structure
 
-        entity = NexusPrime(
+        entity = ZenoPrime(
             data_dir=data_path,
             profile_dir=profile_path,
             headless=not args.no_headless,
             dry_run=args.dry_run,
         )
         
-        # We run the Nexus loop
+        # We run the Zeno loop
         result = entity.run_forever(hours_per_run=args.run_hours)
         
         # Future: Publisher logic to push to target_repo goes here
