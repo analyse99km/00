@@ -91,7 +91,7 @@ from webdriver_manager.chrome import (
 # =========================================================
 
 HEADDERFILL_VERSION = (
-    "zeno-enterprise-browser-bootstrap-2026-05-20"
+    "zeno-browser-bootstrap-2026-06-02"
 )
 
 # =========================================================
