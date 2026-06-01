@@ -1,4 +1,4 @@
-name: Final Puss Nexus Prime
+name: Zeno Data Organism
 
 on:
   repository_dispatch:
@@ -22,31 +22,31 @@ on:
     branches: [main]
 
 concurrency:
-  group: nexus-prime-${{ github.repository }}
+  group: zeno-${{ github.repository }}
   cancel-in-progress: true
 
 env:
   RUN_HOURS: "3.2"
-  NEXUS_MAX_RUNTIME_HOURS: "3.2"
-  NEXUS_SHUTDOWN_MARGIN_SECONDS: "3000"
-  NEXUS_X_POST_ATTEMPTS: "1"
-  NEXUS_X_SEARCH_MODE: "top"
-  NEXUS_IMPORT_LEGACY_LOGINS: "0"
-  NEXUS_REPO_TEMPLATE: "v{iteration}"
-  NEXUS_REPO_PRIVATE: "0"
-  NEXUS_DELETE_PREVIOUS_REPO_ON_BOOT: "1"
-  NEXUS_TRIGGER_AFTER_PUSH: "1"
-  NEXUS_SNAPSHOT_RETENTION: "8"
-  NEXUS_PRIMARY_MODEL: "tinyllama"
-  NEXUS_OLLAMA_MODELS: "tinyllama"
-  NEXUS_MODEL_CODING: "tinyllama"
-  NEXUS_MODEL_PLANNING: "tinyllama"
-  NEXUS_MODEL_CHAT: "tinyllama"
-  NEXUS_MODEL_SUMMARY: "tinyllama"
-  NEXUS_MODEL_DEBUG: "tinyllama"
-  NEXUS_MODEL_QUICK: "tinyllama"
-  NEXUS_CHROMIUM_PROFILE_REPO: "https://github.com/analyse99km/cpr.git"
-  NEXUS_CHROMIUM_PROFILE_REF: ""
+  ZENO_MAX_RUNTIME_HOURS: "3.2"
+  ZENO_SHUTDOWN_MARGIN_SECONDS: "3000"
+  ZENO_X_POST_ATTEMPTS: "1"
+  ZENO_X_SEARCH_MODE: "top"
+  ZENO_IMPORT_LEGACY_LOGINS: "0"
+  ZENO_REPO_TEMPLATE: "v{iteration}"
+  ZENO_REPO_PRIVATE: "0"
+  ZENO_DELETE_PREVIOUS_REPO_ON_BOOT: "1"
+  ZENO_TRIGGER_AFTER_PUSH: "1"
+  ZENO_SNAPSHOT_RETENTION: "8"
+  ZENO_PRIMARY_MODEL: "tinyllama"
+  ZENO_OLLAMA_MODELS: "tinyllama"
+  ZENO_MODEL_CODING: "tinyllama"
+  ZENO_MODEL_PLANNING: "tinyllama"
+  ZENO_MODEL_CHAT: "tinyllama"
+  ZENO_MODEL_SUMMARY: "tinyllama"
+  ZENO_MODEL_DEBUG: "tinyllama"
+  ZENO_MODEL_QUICK: "tinyllama"
+  ZENO_CHROMIUM_PROFILE_REPO: "https://github.com/analyse99km/cpr.git"
+  ZENO_CHROMIUM_PROFILE_REF: ""
   PYTHONUNBUFFERED: "1"
 
 jobs:
@@ -60,7 +60,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Hydrate Nexus Prime Chromium profile
+      - name: Hydrate Zeno Chromium profile
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
         run: |
@@ -68,12 +68,12 @@ jobs:
           rm -rf chromium .nexus-chromium-profile
           mkdir -p chromium/Default
           clone_ok=0
-          AUTH_REPO=$(echo "${{ env.NEXUS_CHROMIUM_PROFILE_REPO }}" | sed "s|https://|https://x-access-token:${GH_PAT}@|")
-          if [ -n "${{ env.NEXUS_CHROMIUM_PROFILE_REF }}" ]; then
-            if git clone --depth=1 --branch "${{ env.NEXUS_CHROMIUM_PROFILE_REF }}" "$AUTH_REPO" .nexus-chromium-profile; then
+          AUTH_REPO=$(echo "${{ env.ZENO_CHROMIUM_PROFILE_REPO }}" | sed "s|https://|https://x-access-token:${GH_PAT}@|")
+          if [ -n "${{ env.ZENO_CHROMIUM_PROFILE_REF }}" ]; then
+            if git clone --depth=1 --branch "${{ env.ZENO_CHROMIUM_PROFILE_REF }}" "$AUTH_REPO" .nexus-chromium-profile; then
               clone_ok=1
             else
-              echo "Profile branch '${{ env.NEXUS_CHROMIUM_PROFILE_REF }}' is unavailable; retrying default branch."
+              echo "Profile branch '${{ env.ZENO_CHROMIUM_PROFILE_REF }}' is unavailable; retrying default branch."
               rm -rf .nexus-chromium-profile
               git clone --depth=1 "$AUTH_REPO" .nexus-chromium-profile && clone_ok=1 || true
             fi
@@ -105,10 +105,10 @@ jobs:
           rm -rf .nexus-chromium-profile
           find chromium -maxdepth 2 -mindepth 1 | sort | sed -n '1,40p'
 
-      - name: Build Nexus Prime container
-        run: docker build -t nexus-prime:latest .
+      - name: Build Zeno container
+        run: docker build -t zeno:latest .
 
-      - name: Run Nexus Prime inside Docker
+      - name: Run Zeno inside Docker
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
           GH_PAT_FG: ${{ secrets.GH_PAT_FG }}
@@ -134,28 +134,28 @@ jobs:
             -e GITHUB_ACTIONS=true \
             -e CI=true \
             -e CHROMIUM_PATH=/usr/bin/ungoogled-chromium \
-            -e NEXUS_BOOT_SEQUENCE_ONLY="$BOOT_ONLY" \
-            -e NEXUS_RUN_HOURS_OVERRIDE="$HOURS" \
-            -e NEXUS_MAX_RUNTIME_HOURS="${{ env.NEXUS_MAX_RUNTIME_HOURS }}" \
-            -e NEXUS_SHUTDOWN_MARGIN_SECONDS="${{ env.NEXUS_SHUTDOWN_MARGIN_SECONDS }}" \
-            -e NEXUS_X_POST_ATTEMPTS="${{ env.NEXUS_X_POST_ATTEMPTS }}" \
-            -e NEXUS_X_SEARCH_MODE="${{ env.NEXUS_X_SEARCH_MODE }}" \
-            -e NEXUS_IMPORT_LEGACY_LOGINS="${{ env.NEXUS_IMPORT_LEGACY_LOGINS }}" \
-            -e NEXUS_REPO_TEMPLATE="${{ env.NEXUS_REPO_TEMPLATE }}" \
-            -e NEXUS_REPO_PRIVATE="${{ env.NEXUS_REPO_PRIVATE }}" \
-            -e NEXUS_DELETE_PREVIOUS_REPO_ON_BOOT="${{ env.NEXUS_DELETE_PREVIOUS_REPO_ON_BOOT }}" \
-            -e NEXUS_TRIGGER_AFTER_PUSH="${{ env.NEXUS_TRIGGER_AFTER_PUSH }}" \
-            -e NEXUS_SNAPSHOT_RETENTION="${{ env.NEXUS_SNAPSHOT_RETENTION }}" \
-            -e NEXUS_PRIMARY_MODEL="${{ env.NEXUS_PRIMARY_MODEL }}" \
-            -e NEXUS_OLLAMA_MODELS="${{ env.NEXUS_OLLAMA_MODELS }}" \
-            -e NEXUS_MODEL_CODING="${{ env.NEXUS_MODEL_CODING }}" \
-            -e NEXUS_MODEL_PLANNING="${{ env.NEXUS_MODEL_PLANNING }}" \
-            -e NEXUS_MODEL_CHAT="${{ env.NEXUS_MODEL_CHAT }}" \
-            -e NEXUS_MODEL_SUMMARY="${{ env.NEXUS_MODEL_SUMMARY }}" \
-            -e NEXUS_MODEL_DEBUG="${{ env.NEXUS_MODEL_DEBUG }}" \
-            -e NEXUS_MODEL_QUICK="${{ env.NEXUS_MODEL_QUICK }}" \
+            -e ZENO_BOOT_SEQUENCE_ONLY="$BOOT_ONLY" \
+            -e ZENO_RUN_HOURS_OVERRIDE="$HOURS" \
+            -e ZENO_MAX_RUNTIME_HOURS="${{ env.ZENO_MAX_RUNTIME_HOURS }}" \
+            -e ZENO_SHUTDOWN_MARGIN_SECONDS="${{ env.ZENO_SHUTDOWN_MARGIN_SECONDS }}" \
+            -e ZENO_X_POST_ATTEMPTS="${{ env.ZENO_X_POST_ATTEMPTS }}" \
+            -e ZENO_X_SEARCH_MODE="${{ env.ZENO_X_SEARCH_MODE }}" \
+            -e ZENO_IMPORT_LEGACY_LOGINS="${{ env.ZENO_IMPORT_LEGACY_LOGINS }}" \
+            -e ZENO_REPO_TEMPLATE="${{ env.ZENO_REPO_TEMPLATE }}" \
+            -e ZENO_REPO_PRIVATE="${{ env.ZENO_REPO_PRIVATE }}" \
+            -e ZENO_DELETE_PREVIOUS_REPO_ON_BOOT="${{ env.ZENO_DELETE_PREVIOUS_REPO_ON_BOOT }}" \
+            -e ZENO_TRIGGER_AFTER_PUSH="${{ env.ZENO_TRIGGER_AFTER_PUSH }}" \
+            -e ZENO_SNAPSHOT_RETENTION="${{ env.ZENO_SNAPSHOT_RETENTION }}" \
+            -e ZENO_PRIMARY_MODEL="${{ env.ZENO_PRIMARY_MODEL }}" \
+            -e ZENO_OLLAMA_MODELS="${{ env.ZENO_OLLAMA_MODELS }}" \
+            -e ZENO_MODEL_CODING="${{ env.ZENO_MODEL_CODING }}" \
+            -e ZENO_MODEL_PLANNING="${{ env.ZENO_MODEL_PLANNING }}" \
+            -e ZENO_MODEL_CHAT="${{ env.ZENO_MODEL_CHAT }}" \
+            -e ZENO_MODEL_SUMMARY="${{ env.ZENO_MODEL_SUMMARY }}" \
+            -e ZENO_MODEL_DEBUG="${{ env.ZENO_MODEL_DEBUG }}" \
+            -e ZENO_MODEL_QUICK="${{ env.ZENO_MODEL_QUICK }}" \
             -e PYTHONUNBUFFERED=1 \
             -v "${{ github.workspace }}:/app" \
             -w /app \
-            nexus-prime:latest \
-            bash -lc 'mkdir -p data/snapshots chromium && [ -f iteration.txt ] || echo "1" > iteration.txt && [ -f task.txt ] || : > task.txt && [ -f prev_repo.txt ] || : > prev_repo.txt && cp iteration.txt data/iteration.txt || true && if [ "$NEXUS_BOOT_SEQUENCE_ONLY" = "1" ]; then python3 zeno_v1.py --run-hours "$NEXUS_RUN_HOURS_OVERRIDE" --boot-validation-only; else python3 zeno_v1.py --run-hours "$NEXUS_RUN_HOURS_OVERRIDE"; fi'
+            zeno:latest \
+            bash -lc 'mkdir -p data/snapshots chromium && [ -f iteration.txt ] || echo "1" > iteration.txt && [ -f task.txt ] || : > task.txt && [ -f prev_repo.txt ] || : > prev_repo.txt && cp iteration.txt data/iteration.txt || true && if [ "$ZENO_BOOT_SEQUENCE_ONLY" = "1" ]; then python3 zeno_v1.py --run-hours "$ZENO_RUN_HOURS_OVERRIDE" --boot-validation-only; else python3 zeno_v1.py --run-hours "$ZENO_RUN_HOURS_OVERRIDE"; fi'
