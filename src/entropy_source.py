@@ -1,5 +1,5 @@
 """
-NEXUS-PRIME-Ω  Entropy Source  v2 — ZERO EXTERNAL APIs
+ZENO  Entropy Source v2 - ZERO EXTERNAL APIs
 =======================================================
 100% local randomness using:
   1. Python `secrets` module  (OS CSPRNG — /dev/urandom on Linux)
