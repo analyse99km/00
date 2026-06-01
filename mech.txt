@@ -1,0 +1,30 @@
+# ZENO ORGANISM: BOILERPLATE MECHANISM (V1)
+
+## OVERVIEW
+Zeno is a persistent, fully autonomous digital organism built on the Infinite Rebirth architecture. It is designed as a reusable boilerplate for stealth data extraction, currently configured to mine intelligence on "crypto startups". It lives entirely within GitHub Actions, bypassing local infrastructure limits and IP bans through a combination of stealth browser orchestration and self-replicating CI/CD pipelines.
+
+## 1. THE BRAIN (Cognition & Intelligence)
+The organism's logic is driven by a decentralized AI architecture inside `ai_brain/`:
+- **World Model:** Maintains the organism's internal state, mission parameters, and historical memory.
+- **Trend Hunter (`src/trend_hunter.py`):** Dynamically researches the target topic (defined in `ZENO_MISSION_TOPIC`, currently "crypto startups").
+- **LLM Codex (`src/codex.py`):** Acts as the internal reasoning engine, analyzing raw HTML, determining CSS selectors dynamically, and deciding what data to extract.
+- **Memory System:** Stores extracted intel in SQLite and JSON files, ensuring that Zeno learns across its lifecycles.
+
+## 2. THE STEALTH BROWSER (Headderfill & CPR)
+To extract data without being blocked by Cloudflare, Datadome, or Twitter logic, Zeno uses a dual-layer stealth system:
+- **Headderfill:** A generalized, highly evasive browser bootstrap script that patches `undetected_chromedriver` and orchestrates Chrome binaries with specialized fingerprinting.
+- **Chromium Profile (CPR):** A massive (290MB+), mathematically exact clone of a warmed-up browser profile. It contains active cookies, session tokens, and cache states. By hydrating this profile at boot, Zeno appears as a trusted, long-standing human user rather than a fresh bot.
+
+## 3. INFINITE REBIRTH (CI/CD Lifecycle)
+Zeno operates within GitHub Actions to bypass compute costs, but GitHub limits workflow runtimes (usually 6 hours). To achieve infinite persistence, Zeno clones itself:
+1. **Boot:** The `.github/workflows/zeno.yml` workflow triggers. It downloads the code, pulls the CPR profile, and boots the stealth browser.
+2. **Execution:** Zeno extracts data on crypto startups, interacting with pages and storing intel in `data/`.
+3. **Replication (The Rebirth):** Just before the GitHub Actions timeout is reached, Zeno packages its own source code, its memory database, and its updated iteration state. It uses the GitHub API to dynamically create a *new* repository (e.g., `v2`), pushes itself there, and triggers the new repo's GitHub Action.
+4. **Death of the Old:** The old repository (`v1`) completes its run and is deleted by the newly spawned organism to hide tracks and manage storage.
+
+## 4. TARGETED DATA EXTRACTION
+While Zeno constantly moves its source code to new repositories to stay alive, its extracted intelligence must be centralized. 
+At the end of every cycle, the `github_ops.py` module performs a targeted push. It takes everything in the `data/` folder and force-pushes it exclusively to `https://github.com/analyse99km/project1-crypto_startups` (configured via `ZENO_TARGET_REPO`). 
+
+## SUMMARY
+Zeno is an unkillable data miner. It spins up, steals intelligence using human-grade browser profiles, ships the data to a secure central repository, clones its brain to a new GitHub repo, triggers the clone, and destroys its old body. It is the ultimate autonomous scraper boilerplate.
