@@ -822,13 +822,16 @@ class ZenoPrime:
 
     def build_trend_queries(self) -> list[str]:
         memory_briefs = self._memory_briefs()
-        queries = self.trend_hunter.compose_queries(memory_briefs, limit=8)
+        query_limit = _env_int("ZENO_TREND_QUERY_LIMIT", 8)
+        if _env_enabled("ZENO_DEEP_AUDIT_ENABLED", "0"):
+            query_limit = max(query_limit, min(50, _env_int("ZENO_DEEP_AUDIT_MIN_ACCOUNTS", 100)))
+        queries = self.trend_hunter.compose_queries(memory_briefs, limit=query_limit)
         self.memory.set_working_memory(
             "ram.trend_queries",
-            json.dumps(queries[:10], indent=2),
+            json.dumps(queries[:query_limit], indent=2),
             metadata={"count": len(queries), "iteration": self.iteration},
         )
-        return queries[:8]
+        return queries[:query_limit]
 
     def _store_source_card(self, card: dict) -> None:
         media_url = self._candidate_media_url(card)
@@ -874,7 +877,10 @@ class ZenoPrime:
                     time.sleep(2)
         if not collected:
             collected = self.trend_hunter.fallback_results(queries)
-        card_limit = max(10, min(80, _env_int("ZENO_TREND_CARD_LIMIT", 40)))
+        requested_card_limit = _env_int("ZENO_TREND_CARD_LIMIT", 40)
+        if _env_enabled("ZENO_DEEP_AUDIT_ENABLED", "0"):
+            requested_card_limit = max(requested_card_limit, _env_int("ZENO_DEEP_AUDIT_MIN_ACCOUNTS", 100) * 2)
+        card_limit = max(10, min(500, requested_card_limit))
         cards = self.viral.build_cards(collected, limit=card_limit)
         before_topic_filter = len(cards)
         cards = [card for card in cards if not self._candidate_off_topic_reason(card)]
@@ -1087,6 +1093,181 @@ class ZenoPrime:
                 "metrics": self._candidate_metrics(candidate),
             },
         )
+
+    def _deep_audit_dir(self) -> Path:
+        path = self.data_dir / "deep_audit"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def _append_jsonl(self, path: Path, payload: dict) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+
+    def _candidate_account_key(self, candidate: dict) -> str:
+        handle = str(candidate.get("author_handle", "")).strip()
+        if handle:
+            return handle if handle.startswith("@") else f"@{handle}"
+        source_url = str(candidate.get("source_url", "")).strip()
+        try:
+            parsed = urllib.parse.urlsplit(source_url)
+            parts = [part for part in parsed.path.split("/") if part]
+            if parts:
+                return f"@{parts[0]}"
+        except Exception:
+            pass
+        return ""
+
+    def _discover_deep_audit_accounts(self, quota: int) -> list[dict]:
+        cards = self.research_trends()
+        accounts: list[dict] = []
+        seen = set()
+        for card in cards:
+            handle = self._candidate_account_key(card)
+            if not handle:
+                continue
+            key = handle.lower()
+            if key in seen:
+                continue
+            if self.memory.was_account_audited(author_handle=handle, source_url=str(card.get("source_url", ""))):
+                continue
+            seen.add(key)
+            accounts.append(
+                {
+                    "handle": handle,
+                    "topic": str(card.get("topic", "")).strip(),
+                    "source_url": str(card.get("source_url", "")).strip(),
+                    "source_text": str(card.get("source_text", "")).strip(),
+                    "metrics": self._candidate_metrics(card),
+                }
+            )
+            if len(accounts) >= quota:
+                break
+        return accounts
+
+    def _summarize_deep_audit(self, audit_dir: Path, records: list[dict]) -> None:
+        total_posts = sum(int(record.get("post_count", 0)) for record in records)
+        total_comments = sum(int(record.get("comment_count", 0)) for record in records)
+        lines = [
+            "# Zeno Deep Audit Report",
+            "",
+            f"- Mission topic: {os.environ.get('ZENO_MISSION_TOPIC', '').strip()}",
+            f"- Target repo: {os.environ.get('ZENO_TARGET_REPO', '').strip()}",
+            f"- Accounts audited: {len(records)}",
+            f"- Posts collected: {total_posts}",
+            f"- Comments collected: {total_comments}",
+            f"- Generated at: {datetime.utcnow().isoformat()}Z",
+            "",
+            "## Accounts",
+        ]
+        for record in records:
+            lines.append(
+                f"- {record.get('handle', '')}: posts={record.get('post_count', 0)}, "
+                f"comments={record.get('comment_count', 0)}, source={record.get('source_url', '')}"
+            )
+        (audit_dir / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    def deep_account_audit(self) -> dict:
+        if not _env_enabled("ZENO_DEEP_AUDIT_ENABLED", "0"):
+            return {"enabled": False, "accounts": 0, "posts": 0, "comments": 0}
+        quota = max(1, _env_int("ZENO_DEEP_AUDIT_MIN_ACCOUNTS", 100))
+        posts_per_account = max(1, _env_int("ZENO_DEEP_AUDIT_POSTS_PER_ACCOUNT", 100))
+        comments_per_post = max(0, _env_int("ZENO_DEEP_AUDIT_COMMENTS_PER_POST", 50))
+        audit_dir = self._deep_audit_dir()
+        run_id = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+        self._trace_runtime(
+            "deep_audit",
+            "start",
+            quota=quota,
+            posts_per_account=posts_per_account,
+            comments_per_post=comments_per_post,
+        )
+        if self.dry_run or self.browser.driver is None:
+            self._trace_runtime("deep_audit", "skipped", reason="browser unavailable")
+            return {"enabled": True, "accounts": 0, "posts": 0, "comments": 0, "skipped": "browser unavailable"}
+        if not self._restore_site_session("twitter", reason="deep_audit"):
+            self._trace_runtime("deep_audit", "skipped", reason="x session unavailable")
+            return {"enabled": True, "accounts": 0, "posts": 0, "comments": 0, "skipped": "x session unavailable"}
+
+        accounts = self._discover_deep_audit_accounts(quota)
+        records: list[dict] = []
+        total_posts = 0
+        total_comments = 0
+        for account in accounts:
+            handle = account["handle"]
+            if self.memory.was_account_audited(author_handle=handle, source_url=account.get("source_url", "")):
+                continue
+            profile = self.browser.get_x_profile_summary(handle)
+            posts = self.browser.get_x_account_posts(
+                handle,
+                limit=posts_per_account,
+                topic=os.environ.get("ZENO_MISSION_TOPIC", ""),
+            )
+            account_comment_count = 0
+            for post in posts:
+                post_payload = {
+                    "run_id": run_id,
+                    "handle": handle,
+                    "topic": account.get("topic", ""),
+                    "post_url": post.get("url", ""),
+                    "text": post.get("text", ""),
+                    "raw_text": post.get("raw_text", ""),
+                    "metrics": post.get("metrics", {}),
+                    "media": {
+                        "image_url": post.get("image_url", ""),
+                        "video_url": post.get("video_url", ""),
+                        "thumbnail_url": post.get("thumbnail_url", ""),
+                        "media_type": post.get("media_type", ""),
+                    },
+                    "captured_at": datetime.utcnow().isoformat() + "Z",
+                }
+                self._append_jsonl(audit_dir / "posts.jsonl", post_payload)
+                if comments_per_post and post.get("url"):
+                    replies = self.browser.get_tweet_replies(post["url"], limit=comments_per_post)
+                    for reply in replies:
+                        account_comment_count += 1
+                        self._append_jsonl(
+                            audit_dir / "comments.jsonl",
+                            {
+                                "run_id": run_id,
+                                "handle": handle,
+                                "post_url": post.get("url", ""),
+                                "reply": reply,
+                                "captured_at": datetime.utcnow().isoformat() + "Z",
+                            },
+                        )
+            record = {
+                "run_id": run_id,
+                "handle": handle,
+                "topic": account.get("topic", ""),
+                "source_url": account.get("source_url", ""),
+                "source_text": account.get("source_text", ""),
+                "discovery_metrics": account.get("metrics", {}),
+                "profile": profile,
+                "post_count": len(posts),
+                "comment_count": account_comment_count,
+                "captured_at": datetime.utcnow().isoformat() + "Z",
+            }
+            records.append(record)
+            total_posts += len(posts)
+            total_comments += account_comment_count
+            self._append_jsonl(audit_dir / "accounts.jsonl", record)
+            self.memory.record_account_audit(
+                author_handle=handle,
+                source_url=account.get("source_url", ""),
+                topic=account.get("topic", ""),
+                action="deep_audit",
+                metadata={"run_id": run_id, "post_count": len(posts), "comment_count": account_comment_count},
+            )
+            self._trace_runtime("deep_audit_account", "complete", handle=handle, posts=len(posts), comments=account_comment_count)
+            if len(records) >= quota:
+                break
+
+        self._summarize_deep_audit(audit_dir, records)
+        result = {"enabled": True, "accounts": len(records), "posts": total_posts, "comments": total_comments, "run_id": run_id}
+        self.memory.set_working_memory("ram.deep_audit.last_run", json.dumps(result, indent=2), metadata=result)
+        self._trace_runtime("deep_audit", "complete", **result)
+        return result
 
     def _normalized_post(self, text: str) -> str:
         return re.sub(r"\s+", " ", (text or "").strip().lower())
@@ -2101,6 +2282,28 @@ class ZenoPrime:
             self._trace_runtime("deepseek_login", "success" if self.deepseek_available else "failed")
             if not self.deepseek_available and self.accounts.deepseek_email and self.accounts.deepseek_password:
                 self.recover_page_confusion("open DeepSeek chat and make it ready for selector recovery", site="deepseek", error="deepseek login failed")
+
+        deep_audit_result = self.deep_account_audit()
+        if deep_audit_result.get("enabled") and _env_enabled("ZENO_DEEP_AUDIT_STOP_AFTER_COMPLETE", "0"):
+            synced = False
+            try:
+                synced = self.github.sync_target_data_repo(
+                    project_root=self.project_root,
+                    persistent_data_dir=self.data_dir,
+                    iteration=self.iteration,
+                )
+            except Exception as exc:
+                log.warning("Deep audit target sync failed: %s", exc)
+            if not self.dry_run:
+                self.browser.stop()
+            self.memory.close()
+            return {
+                "mode": "deep_audit",
+                "iteration": self.iteration,
+                "current_repo": self.current_repo,
+                "synced_target_repo": synced,
+                **deep_audit_result,
+            }
 
         task = self._read_task_txt()
         if task:
