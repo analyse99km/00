@@ -6,21 +6,40 @@ Zeno operates as a high-volume, deep-audit intelligence gatherer based on your c
 1. Target Discovery & Quota Routing
 It constantly searches for high-signal discussions regarding the target topic. It builds a queue of accounts/startups discussing the topic until it hits a mandatory minimum quota (e.g., 100 accounts). 
 
-2. Deep Account Dossier Extraction
-Once it selects a target account, Zeno does a "Deep Audit". It extracts massive amounts of contextual data to build a complete dossier:
-- Profile Intelligence: It extracts the account's full profile details and summary.
-- Historical Posts: It extracts up to 100 public posts from the account (including the raw text, hashtags, cashtags, URLs, and media attachments).
-- Audience Engagement (Comments): For every single post it pulls, it also extracts up to 50 public comments and replies left by other users, giving you a map of the community sentiment.
-- Traction Metrics: It records the exact number of likes, retweets, quotes, replies, views, and bookmarks so you can see how viral the startup is.
+2. Deep Account Dossier Extraction (Example Breakdown)
+Imagine Zeno discovers a new crypto startup account. Here is exactly what it extracts and saves for that single account:
+
+A. The Profile Snapshot (`profile.json`)
+- The startup's handle, display name, and bio description.
+- Discovery metrics (where Zeno found them and why).
+- Account source URL and collection timestamps.
+
+B. The Posts (`posts.jsonl`)
+Zeno extracts up to 100 of the startup's public posts. For every single post, it saves:
+- The full raw text of the post.
+- Explicit Engagement Metrics: Exact counts of likes, retweets, replies, quotes, views, and bookmarks.
+- Parsed Entities: All hashtags, cashtags (e.g., $BTC), @mentions, and external URLs extracted into a clean list.
+- Media Attachments: Details of any images or videos attached to the post.
+- Timestamps and URLs for the exact post.
+
+C. The Community Comments (`comments.jsonl`)
+For every post Zeno extracts, it pulls up to 50 replies/comments left by the public. For each comment, it saves:
+- The text of the comment left by the community.
+- The handle of the person commenting.
+- Engagement metrics on the comment itself (likes, retweets, views).
+- The parent tweet ID and conversation thread.
+
+D. Traction Snapshots (`metric_snapshots.jsonl`)
+- A time-series log of engagement counts. If Zeno sees the same post again later, it records the new metrics so you can track how fast a post is growing over time.
 
 3. Infinite Discovery (No Repeats)
-Every single account it fully audits is permanently memorized in its database. When Zeno runs again tomorrow (or a month from now), it will instantly skip any account it already built a dossier for. It strictly focuses on discovering NEW startups.
+Every single account it fully audits is permanently memorized in its database. When Zeno runs again, it will instantly skip any account it already built a dossier for. It strictly focuses on discovering NEW startups.
 
 WHERE IT SAVES THE DATA:
 1. The Local Dossier Vault (`data/deep_audit/`)
 Instead of dumping data randomly, Zeno builds a highly organized intelligence folder on its local machine:
 - It creates global databases (`accounts.jsonl`, `posts.jsonl`, `comments.jsonl`, and `metric_snapshots.jsonl`) so you can search across all startups at once.
-- It also creates dedicated folders for every single startup (e.g., `data/deep_audit/accounts/<handle>/`) containing isolated copies of their specific posts, profiles, and comments. 
+- It creates a dedicated folder specifically for this startup: `data/deep_audit/accounts/<handle>/` containing isolated copies of all the posts, profiles, and comments listed above. 
 - It generates a human-readable `summary.md` detailing the entire operation.
 
 2. The Permanent Target Repository
