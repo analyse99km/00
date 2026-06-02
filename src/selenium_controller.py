@@ -1072,6 +1072,68 @@ class SeleniumController:
             log.error("X search failed for %s: %s", query, exc)
         return results
 
+    def get_x_profile_summary(self, handle: str) -> dict:
+        if self.driver is None:
+            return {}
+        clean = (handle or "").strip().lstrip("@")
+        if not clean:
+            return {}
+        url = f"https://x.com/{urllib.parse.quote(clean, safe='')}"
+        summary = {"handle": f"@{clean}", "profile_url": url}
+        try:
+            self.driver.get(url)
+            _delay(4, 7)
+            body_text = " ".join((self.driver.find_element(By.TAG_NAME, "body").text or "").split())
+            summary["raw_profile_text"] = body_text[:5000]
+            summary["display_name"] = ""
+            summary["bio"] = ""
+            try:
+                name_el = self.driver.find_element(By.CSS_SELECTOR, "[data-testid='UserName']")
+                summary["display_name"] = " ".join((name_el.text or "").split())[:300]
+            except Exception:
+                pass
+            try:
+                bio_el = self.driver.find_element(By.CSS_SELECTOR, "[data-testid='UserDescription']")
+                summary["bio"] = " ".join((bio_el.text or "").split())[:1000]
+            except Exception:
+                pass
+            summary["metrics"] = {
+                "followers": self._extract_metric_from_text(body_text, ["Followers", "followers"]),
+                "following": self._extract_metric_from_text(body_text, ["Following", "following"]),
+                "posts": self._extract_metric_from_text(body_text, ["posts", "Posts"]),
+            }
+        except Exception as exc:
+            log.warning("Could not read X profile %s: %s", handle, exc)
+            summary["error"] = str(exc)[:500]
+        return summary
+
+    def get_x_account_posts(self, handle: str, limit: int = 100, topic: str = "") -> List[dict]:
+        clean = (handle or "").strip().lstrip("@")
+        if not clean:
+            return []
+        query = f"from:{clean}"
+        if topic:
+            query = f"{query} ({topic})"
+        posts: List[dict] = []
+        seen = set()
+        rounds = max(1, min(10, int((limit + 11) / 12)))
+        for _ in range(rounds):
+            for hit in self.search_x(query, limit=min(12, max(3, limit - len(posts)))):
+                key = hit.get("url") or hit.get("text")
+                if not key or key in seen:
+                    continue
+                seen.add(key)
+                hit["account_handle"] = f"@{clean}"
+                posts.append(hit)
+                if len(posts) >= limit:
+                    return posts
+            try:
+                self.driver.execute_script("window.scrollBy(0, Math.floor(window.innerHeight * 0.9));")
+            except Exception:
+                break
+            _delay(1, 2)
+        return posts[:limit]
+
     def get_notifications(self, limit: int = 30) -> List[dict]:
         if self.driver is None:
             return []
