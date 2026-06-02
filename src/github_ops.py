@@ -45,6 +45,7 @@ def data_path_should_copy(relative_path: Path) -> bool:
         return False
     if rel.parts and rel.parts[0].lower() == "snapshots":
         return True
+
     if name in {"zeno_memory.db", "iteration.txt", "rebirth_data.json", "self_heal_log.jsonl", "health.json"}:
         return True
     return rel.suffix.lower() in PERSISTENT_DATA_SUFFIXES
@@ -66,9 +67,22 @@ def profile_path_should_copy(relative_path: Path) -> bool:
 class GitHubOps:
     def __init__(self, username: str, token: str):
         self.username = username
-        self.token = token
+        self.token = self._clean_token(token)
+
+    @staticmethod
+    def _clean_token(token: str) -> str:
+        token = (token or "").strip()
+        # HTTP headers cannot contain control bytes. Reject decoded fallback junk
+        # early so the failure message points at the missing/invalid secret.
+        token = "".join(ch for ch in token if ch.isprintable() and not ch.isspace())
+        if token and not (token.startswith("ghp_") or token.startswith("github_pat_")):
+            log.warning("Ignoring invalid GitHub token format; set GH_PAT or GH_PAT_FG in Actions secrets")
+            return ""
+        return token
 
     def _headers(self) -> dict[str, str]:
+        if not self.token:
+            raise RuntimeError("Valid GitHub token missing; set GH_PAT or GH_PAT_FG in Actions secrets")
         return {
             "Authorization": f"token {self.token}",
             "Accept": "application/vnd.github.v3+json",
@@ -394,3 +408,69 @@ class GitHubOps:
                     log.warning("Failed to push data to target repo %s: %s", target_data_repo, e)
 
         return True
+
+    def sync_target_data_repo(
+        self,
+        project_root: Path,
+        persistent_data_dir: Path,
+        iteration: int,
+    ) -> bool:
+        target_data_repo = os.environ.get("ZENO_TARGET_REPO", "").strip()
+        if not target_data_repo or "/" not in target_data_repo:
+            log.warning("ZENO_TARGET_REPO is not configured; skipping target data sync")
+            return False
+
+        source_data_dir = Path(persistent_data_dir).resolve()
+        if not source_data_dir.exists():
+            log.warning("Data directory missing; nothing to sync: %s", source_data_dir)
+            return False
+
+        env = {**dict(os.environ), "GIT_TERMINAL_PROMPT": "0"}
+        quoted_username = urllib.parse.quote(self.username, safe="")
+        quoted_token = urllib.parse.quote(self.token, safe="")
+        remote_data = f"https://{quoted_username}:{quoted_token}@github.com/{target_data_repo}.git"
+
+        with tempfile.TemporaryDirectory(prefix="zeno_data_sync_") as data_temp_dir:
+            data_temp_root = Path(data_temp_dir) / "data_repo"
+            data_temp_root.mkdir(parents=True, exist_ok=True)
+            target_data_dir = data_temp_root / "data"
+            target_data_dir.mkdir(parents=True, exist_ok=True)
+            (target_data_dir / "snapshots").mkdir(parents=True, exist_ok=True)
+            self._copy_persistent_data(source_data_dir, target_data_dir)
+
+            def git_data(*args: str) -> None:
+                res = subprocess.run(
+                    ["git", *args],
+                    cwd=data_temp_root,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=300,
+                )
+                if res.returncode != 0:
+                    raise RuntimeError(f"git data {' '.join(args)} failed: {res.stderr[:300]}")
+
+            git_data("init")
+            git_data("config", "user.name", "Zeno Data Collector")
+            git_data("config", "user.email", "zeno@data.local")
+            git_data("add", "-A", ".")
+            try:
+                git_data("commit", "-m", f"Deep audit data sync from iteration {iteration}")
+            except RuntimeError:
+                log.info("No target data changes to commit")
+                return True
+
+            git_data("remote", "add", "origin", remote_data)
+            git_data("branch", "-M", "main")
+            push_delay = max(1, int(os.environ.get("ZENO_GIT_PUSH_RETRY_DELAY_SECONDS", "5")))
+            for attempt in range(1, 4):
+                try:
+                    git_data("push", "-u", "origin", "main", "--force")
+                    log.info("Successfully synced extracted data to %s", target_data_repo)
+                    return True
+                except Exception as exc:
+                    if attempt >= 3:
+                        raise
+                    log.warning("Target data sync attempt %s failed; retrying: %s", attempt, exc)
+                    time.sleep(push_delay)
+        return False
