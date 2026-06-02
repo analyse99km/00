@@ -10,6 +10,7 @@ import signal
 import subprocess
 import time
 import urllib.parse
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -1061,10 +1062,13 @@ class SeleniumController:
                         "text": text,
                         "raw_text": raw_text,
                         "url": link,
+                        "created_at": self._extract_timestamp(article),
+                        "language": self._extract_language(article),
                         "image_url": media.get("media_url", ""),
                         "video_url": media.get("video_url", ""),
                         "thumbnail_url": media.get("thumbnail_url", ""),
                         "media_type": media.get("media_type", ""),
+                        "media_items": self._extract_media_items(article),
                         "metrics": self._extract_metrics(article, raw_text),
                     }
                 )
@@ -1079,14 +1083,32 @@ class SeleniumController:
         if not clean:
             return {}
         url = f"https://x.com/{urllib.parse.quote(clean, safe='')}"
-        summary = {"handle": f"@{clean}", "profile_url": url}
+        collected_at = self._utc_now_iso()
+        summary = {
+            "handle": f"@{clean}",
+            "profile_url": url,
+            "collected_at": collected_at,
+            "display_name": "",
+            "bio": "",
+            "location": "",
+            "website": "",
+            "join_date": "",
+            "following_count": 0,
+            "followers_count": 0,
+            "total_post_count": 0,
+            "listed_count": 0,
+            "verified_status": "",
+            "protected_status": False,
+            "profile_image_url": "",
+            "header_image_url": "",
+            "pinned_tweet_id": "",
+            "account_id": "",
+        }
         try:
             self.driver.get(url)
             _delay(4, 7)
             body_text = " ".join((self.driver.find_element(By.TAG_NAME, "body").text or "").split())
             summary["raw_profile_text"] = body_text[:5000]
-            summary["display_name"] = ""
-            summary["bio"] = ""
             try:
                 name_el = self.driver.find_element(By.CSS_SELECTOR, "[data-testid='UserName']")
                 summary["display_name"] = " ".join((name_el.text or "").split())[:300]
@@ -1097,10 +1119,24 @@ class SeleniumController:
                 summary["bio"] = " ".join((bio_el.text or "").split())[:1000]
             except Exception:
                 pass
+            summary["location"] = self._profile_meta_value(body_text, "location")
+            summary["website"] = self._profile_website()
+            summary["join_date"] = self._profile_join_date(body_text)
+            summary["following_count"] = self._extract_metric_from_text(body_text, ["Following", "following"])
+            summary["followers_count"] = self._extract_metric_from_text(body_text, ["Followers", "followers"])
+            summary["total_post_count"] = self._extract_metric_from_text(body_text, ["posts", "Posts"])
+            summary["listed_count"] = self._extract_metric_from_text(body_text, ["Listed", "listed"])
+            summary["verified_status"] = self._profile_verified_status(body_text)
+            summary["protected_status"] = bool(re.search(r"\bprotected\b|\bthese posts are protected\b", body_text, re.IGNORECASE))
+            summary["profile_image_url"] = self._profile_image_url()
+            summary["header_image_url"] = self._profile_header_url()
+            summary["pinned_tweet_id"] = self._profile_pinned_tweet_id()
+            summary["account_id"] = self._profile_account_id()
             summary["metrics"] = {
-                "followers": self._extract_metric_from_text(body_text, ["Followers", "followers"]),
-                "following": self._extract_metric_from_text(body_text, ["Following", "following"]),
-                "posts": self._extract_metric_from_text(body_text, ["posts", "Posts"]),
+                "followers": summary["followers_count"],
+                "following": summary["following_count"],
+                "posts": summary["total_post_count"],
+                "listed": summary["listed_count"],
             }
         except Exception as exc:
             log.warning("Could not read X profile %s: %s", handle, exc)
@@ -1124,6 +1160,7 @@ class SeleniumController:
                     continue
                 seen.add(key)
                 hit["account_handle"] = f"@{clean}"
+                hit = self._normalize_post_record(hit, parent_handle=f"@{clean}")
                 posts.append(hit)
                 if len(posts) >= limit:
                     return posts
@@ -1208,11 +1245,94 @@ class SeleniumController:
                     return self._parse_metric_count(match.group(1))
         return 0
 
+    def _profile_meta_value(self, body_text: str, field: str) -> str:
+        text = " ".join((body_text or "").split())
+        if field == "location":
+            match = re.search(r"(?:Location|Located in)\s+(.{2,120}?)(?:\s+Joined|\s+Born|\s+Followers|\s+Following|$)", text, re.IGNORECASE)
+            return match.group(1).strip() if match else ""
+        return ""
+
+    def _profile_join_date(self, body_text: str) -> str:
+        match = re.search(r"Joined\s+([A-Za-z]+\s+\d{4}|[A-Za-z]+\s+\d{1,2},\s+\d{4})", body_text or "", re.IGNORECASE)
+        return match.group(1).strip() if match else ""
+
+    def _profile_website(self) -> str:
+        try:
+            for link in self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='UserUrl'] a, a[href^='http']"):
+                href = (link.get_attribute("href") or "").strip()
+                if href and "x.com/" not in href and "twitter.com/" not in href:
+                    return href
+        except Exception:
+            pass
+        return ""
+
+    def _profile_verified_status(self, body_text: str) -> str:
+        lowered = (body_text or "").lower()
+        if "verified organization" in lowered:
+            return "organization"
+        if "verified account" in lowered or "blue verified" in lowered:
+            return "verified"
+        try:
+            if self.driver.find_elements(By.CSS_SELECTOR, "[aria-label*='Verified'], [data-testid='icon-verified']"):
+                return "verified"
+        except Exception:
+            pass
+        return ""
+
+    def _profile_image_url(self) -> str:
+        try:
+            for image in self.driver.find_elements(By.CSS_SELECTOR, "img[src*='profile_images']"):
+                src = (image.get_attribute("src") or "").strip()
+                if src:
+                    return src.replace("_normal.", "_400x400.")
+        except Exception:
+            pass
+        return ""
+
+    def _profile_header_url(self) -> str:
+        try:
+            for image in self.driver.find_elements(By.CSS_SELECTOR, "img[src*='profile_banners'], div[style*='profile_banners']"):
+                src = (image.get_attribute("src") or "").strip()
+                style = image.get_attribute("style") or ""
+                if not src:
+                    match = re.search(r'url\("?([^")]+profile_banners[^")]+)"?\)', style)
+                    src = match.group(1) if match else ""
+                if src:
+                    return src
+        except Exception:
+            pass
+        return ""
+
+    def _profile_pinned_tweet_id(self) -> str:
+        try:
+            body = self.driver.find_element(By.TAG_NAME, "body").text or ""
+            if "Pinned" not in body:
+                return ""
+            for link in self.driver.find_elements(By.CSS_SELECTOR, "a[href*='/status/']"):
+                tweet_id = self._tweet_id_from_url(link.get_attribute("href") or "")
+                if tweet_id:
+                    return tweet_id
+        except Exception:
+            pass
+        return ""
+
+    def _profile_account_id(self) -> str:
+        try:
+            html = self.driver.page_source or ""
+            for pattern in (r'"rest_id"\s*:\s*"(\d+)"', r'"user_id"\s*:\s*"(\d+)"'):
+                match = re.search(pattern, html)
+                if match:
+                    return match.group(1)
+        except Exception:
+            pass
+        return ""
+
     def _extract_metrics(self, article, text: str) -> dict:
         replies = self._extract_metric_from_elements(article, ["[data-testid='reply']"], ["reply"])
         reposts = self._extract_metric_from_elements(article, ["[data-testid='retweet']", "[data-testid='unretweet']"], ["repost", "retweet"])
         likes = self._extract_metric_from_elements(article, ["[data-testid='like']", "[data-testid='unlike']"], ["like"])
         views = self._extract_metric_from_elements(article, ["a[href*='/analytics']", "[aria-label*='view']", "[title*='view']"], ["view", "views", "analytics"])
+        quotes = self._extract_metric_from_text(text, ["quotes", "quote"])
         replies = replies or self._extract_metric_from_text(text, ["replies", "reply"])
         reposts = reposts or self._extract_metric_from_text(text, ["reposts", "retweets", "retweet"])
         likes = likes or self._extract_metric_from_text(text, ["likes", "like"])
@@ -1221,8 +1341,217 @@ class SeleniumController:
             "likes": likes,
             "reposts": reposts,
             "replies": replies,
+            "quotes": quotes,
             "views": views,
+            "bookmarks": 0,
             "engagement_hint": float(likes + (reposts * 4) + (replies * 3) + int(views / 100)),
+        }
+
+    def _utc_now_iso(self) -> str:
+        return datetime.utcnow().isoformat(timespec="seconds") + "Z"
+
+    def _tweet_id_from_url(self, url: str) -> str:
+        match = re.search(r"/status/(\d+)", url or "")
+        return match.group(1) if match else ""
+
+    def _conversation_id_from_url(self, url: str) -> str:
+        return self._tweet_id_from_url(url)
+
+    def _extract_timestamp(self, article) -> str:
+        try:
+            time_el = article.find_element(By.CSS_SELECTOR, "time")
+            return (time_el.get_attribute("datetime") or time_el.get_attribute("title") or "").strip()
+        except Exception:
+            return ""
+
+    def _extract_language(self, article) -> str:
+        try:
+            for element in article.find_elements(By.CSS_SELECTOR, "[data-testid='tweetText'], div[lang]"):
+                lang = (element.get_attribute("lang") or "").strip()
+                if lang:
+                    return lang
+        except Exception:
+            pass
+        return ""
+
+    def _extract_entities(self, text: str) -> dict:
+        raw = text or ""
+        return {
+            "hashtags": sorted(set(re.findall(r"(?<!\w)#([A-Za-z0-9_]+)", raw))),
+            "mentions": sorted(set(re.findall(r"(?<!\w)@([A-Za-z0-9_]+)", raw))),
+            "urls": sorted(set(re.findall(r"https?://\S+", raw))),
+            "cashtags": sorted(set(re.findall(r"(?<!\w)\$([A-Za-z][A-Za-z0-9_]{1,15})", raw))),
+        }
+
+    def _tweet_flags(self, raw_text: str, url: str) -> dict:
+        lowered = (raw_text or "").lower()
+        return {
+            "is_reply": "replying to" in lowered,
+            "reply_to_user": self._reply_to_user(raw_text),
+            "is_quote": "quote" in lowered or "/status/" in (raw_text or "").replace(url or "", ""),
+            "is_retweet": lowered.startswith("reposted") or lowered.startswith("retweeted"),
+            "possibly_sensitive": "sensitive content" in lowered,
+        }
+
+    def _reply_to_user(self, raw_text: str) -> str:
+        match = re.search(r"Replying to\s+(@[A-Za-z0-9_]+)", raw_text or "", re.IGNORECASE)
+        return match.group(1) if match else ""
+
+    def _media_to_original(self, url: str) -> str:
+        if not url or "pbs.twimg.com/media" not in url:
+            return url or ""
+        parsed = urllib.parse.urlsplit(url)
+        query = urllib.parse.parse_qs(parsed.query)
+        fmt = query.get("format", ["jpg"])[0]
+        return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path, f"format={fmt}&name=orig", ""))
+
+    def _extract_media_items(self, article) -> list[dict]:
+        media_items: list[dict] = []
+        seen = set()
+        try:
+            for image in article.find_elements(By.CSS_SELECTOR, "[data-testid='tweetPhoto'] img, img[src*='pbs.twimg.com/media'], img[src*='twimg.com/media']"):
+                src = (image.get_attribute("src") or "").strip()
+                if not src or src in seen:
+                    continue
+                seen.add(src)
+                media_items.append(
+                    {
+                        "media_type": "image",
+                        "media_url": self._media_to_original(src),
+                        "thumbnail_url": src,
+                        "video_url": "",
+                        "alt_text": (image.get_attribute("alt") or "").strip(),
+                        "width": self._safe_int(image.get_attribute("naturalWidth") or image.get_attribute("width")),
+                        "height": self._safe_int(image.get_attribute("naturalHeight") or image.get_attribute("height")),
+                        "duration_seconds": 0,
+                    }
+                )
+        except Exception:
+            pass
+        try:
+            for video in article.find_elements(By.CSS_SELECTOR, "video"):
+                src = (video.get_attribute("src") or "").strip()
+                poster = (video.get_attribute("poster") or "").strip()
+                key = src or poster
+                if not key or key in seen:
+                    continue
+                seen.add(key)
+                media_items.append(
+                    {
+                        "media_type": "video",
+                        "media_url": src or poster,
+                        "thumbnail_url": poster,
+                        "video_url": src,
+                        "alt_text": "",
+                        "width": self._safe_int(video.get_attribute("videoWidth") or video.get_attribute("width")),
+                        "height": self._safe_int(video.get_attribute("videoHeight") or video.get_attribute("height")),
+                        "duration_seconds": self._safe_float(video.get_attribute("duration")),
+                    }
+                )
+        except Exception:
+            pass
+        return media_items
+
+    def _safe_int(self, value) -> int:
+        try:
+            return int(float(value or 0))
+        except Exception:
+            return 0
+
+    def _safe_float(self, value) -> float:
+        try:
+            return float(value or 0)
+        except Exception:
+            return 0.0
+
+    def _normalize_post_record(self, hit: dict, parent_handle: str = "") -> dict:
+        url = self._normalize_status_url(str(hit.get("url", "")))
+        text = str(hit.get("text", "")).strip()
+        raw_text = str(hit.get("raw_text", "")).strip()
+        metrics = hit.get("metrics", {}) or {}
+        media_items = hit.get("media_items") or []
+        if not media_items:
+            media_items = [
+                item for item in [
+                    {
+                        "media_type": hit.get("media_type", ""),
+                        "media_url": hit.get("image_url", "") or hit.get("video_url", ""),
+                        "image_url": hit.get("image_url", ""),
+                        "video_url": hit.get("video_url", ""),
+                        "thumbnail_url": hit.get("thumbnail_url", ""),
+                        "alt_text": "",
+                        "width": 0,
+                        "height": 0,
+                        "duration_seconds": 0,
+                    }
+                ]
+                if item.get("media_url") or item.get("thumbnail_url") or item.get("video_url")
+            ]
+        flags = self._tweet_flags(raw_text, url)
+        return {
+            **hit,
+            "tweet_id": self._tweet_id_from_url(url),
+            "conversation_id": self._conversation_id_from_url(url),
+            "author_handle": hit.get("user") or parent_handle,
+            "author_display_name": "",
+            "url": url,
+            "text": text,
+            "full_text": text,
+            "raw_text": raw_text,
+            "created_at": hit.get("created_at", ""),
+            "language": hit.get("language", ""),
+            "source_app": "",
+            "is_reply": flags["is_reply"],
+            "reply_to_user": flags["reply_to_user"],
+            "is_quote": flags["is_quote"],
+            "is_retweet": flags["is_retweet"],
+            "possibly_sensitive": flags["possibly_sensitive"],
+            "like_count": int(metrics.get("likes", 0) or 0),
+            "retweet_count": int(metrics.get("reposts", 0) or 0),
+            "reply_count": int(metrics.get("replies", 0) or 0),
+            "quote_count": int(metrics.get("quotes", 0) or 0),
+            "view_count": int(metrics.get("views", 0) or 0),
+            "bookmark_count": int(metrics.get("bookmarks", 0) or 0),
+            "entities": self._extract_entities(text),
+            "media_items": media_items,
+            "has_media": bool(media_items),
+            "media": media_items,
+            "poll": {},
+            "place": "",
+            "card": {},
+            "collected_at": self._utc_now_iso(),
+        }
+
+    def _normalize_reply_record(self, article, link: str, parent_url: str, text: str) -> dict:
+        raw_text = article.text or ""
+        metrics = self._extract_metrics(article, raw_text)
+        media_items = self._extract_media_items(article)
+        reply_url = self._normalize_status_url(link)
+        parent_id = self._tweet_id_from_url(parent_url)
+        flags = self._tweet_flags(raw_text, reply_url)
+        return {
+            "reply_id": self._tweet_id_from_url(reply_url),
+            "parent_tweet_id": parent_id,
+            "conversation_id": parent_id,
+            "author_handle": self._extract_author_handle(article, reply_url),
+            "author_display_name": "",
+            "reply_text": text[:2000],
+            "full_text": text[:2000],
+            "reply_url": reply_url,
+            "created_at": self._extract_timestamp(article),
+            "language": self._extract_language(article),
+            "reply_to_user": flags["reply_to_user"],
+            "in_reply_to_user_id": "",
+            "like_count": int(metrics.get("likes", 0) or 0),
+            "retweet_count": int(metrics.get("reposts", 0) or 0),
+            "reply_count": int(metrics.get("replies", 0) or 0),
+            "quote_count": int(metrics.get("quotes", 0) or 0),
+            "view_count": int(metrics.get("views", 0) or 0),
+            "metrics": metrics,
+            "entities": self._extract_entities(text),
+            "media_items": media_items,
+            "has_media": bool(media_items),
+            "collected_at": self._utc_now_iso(),
         }
 
     def _normalize_status_url(self, raw_url: str) -> str:
@@ -1887,7 +2216,7 @@ class SeleniumController:
     def get_tweet_replies(self, tweet_url: str, limit: int = 20) -> List[dict]:
         if self.driver is None or not self.is_session_alive() or not tweet_url:
             return []
-        limit = max(1, min(20, int(limit or 20)))
+        limit = max(1, min(100, int(limit or 20)))
         target_url = self._normalize_status_url(tweet_url)
         replies: List[dict] = []
         seen = {target_url}
@@ -1905,14 +2234,7 @@ class SeleniumController:
                     if not link or link in seen:
                         continue
                     seen.add(link)
-                    replies.append(
-                        {
-                            "user": self._extract_author_handle(article, link),
-                            "text": text[:500],
-                            "url": link,
-                            "metrics": self._extract_metrics(article, article.text or ""),
-                        }
-                    )
+                    replies.append(self._normalize_reply_record(article, link, target_url, text))
                     if len(replies) >= limit:
                         return replies
                 self.driver.execute_script("window.scrollBy(0, Math.floor(window.innerHeight * 0.85));")
