@@ -87,6 +87,14 @@ def main() -> None:
     # Inject into environment so submodules (ai_brain, publisher) can access them
     os.environ["ZENO_MISSION_TOPIC"] = target_topic
     os.environ["ZENO_TARGET_REPO"] = target_repo
+    for key, value in dyn_config.items():
+        normalized_key = key.strip().upper()
+        if normalized_key in {"TOPIC", "TARGET_REPO"}:
+            continue
+        if normalized_key and value and not normalized_key.startswith("ZENO_"):
+            os.environ[f"ZENO_{normalized_key}"] = value
+        elif normalized_key and value:
+            os.environ[normalized_key] = value
     if args.boot_validation_only:
         os.environ["ZENO_BOOT_SEQUENCE_ONLY"] = "1"
 
