@@ -53,13 +53,31 @@ Other keys become ZENO_* variables.
 
 DATA FILES ZENO CREATES
 data/deep_audit/accounts.jsonl
-One JSON record per audited account. Includes handle, topic, source URL, profile summary, post count, comment count, and run id.
+One JSON record per audited account. Includes handle, topic, source URL, discovery metrics, explicit profile object, post count, comment count, account data folder, collection timestamp, and run id.
 
 data/deep_audit/posts.jsonl
-One JSON record per collected post. Includes handle, post URL, text, metrics, media fields, topic, and run id.
+One JSON record per collected post. Includes tweet id, conversation id, handle, author fields, post URL, full text, raw text, created_at, language, source app placeholder, reply/quote/retweet flags, explicit likes/retweets/replies/quotes/views/bookmarks, parsed hashtags/mentions/URLs/cashtags, media item array, poll/card/place placeholders, sensitive flag, topic, collection timestamp, and run id.
 
 data/deep_audit/comments.jsonl
-One JSON record per collected reply/comment. Includes parent post URL, handle, reply data, and run id.
+One JSON record per collected reply/comment. Includes reply id, parent tweet id, conversation id, parent post URL, reply URL, author handle, display name placeholder, reply text, created_at, language, reply target, explicit likes/retweets/replies/quotes/views, parsed entities, media item array, collection timestamp, and run id.
+
+data/deep_audit/metric_snapshots.jsonl
+One JSON record per collected post/reply metric snapshot. Includes record type, account handle, record id, URL, explicit engagement counts, collection timestamp, and run id. This enables time-series comparison when the same public record is collected again in later runs.
+
+data/deep_audit/accounts/<handle>/account.json
+One per-account account summary file.
+
+data/deep_audit/accounts/<handle>/profile.json
+One per-account profile snapshot with explicit profile fields.
+
+data/deep_audit/accounts/<handle>/posts.jsonl
+Per-account copy of all collected posts for that handle.
+
+data/deep_audit/accounts/<handle>/comments.jsonl
+Per-account copy of all collected replies/comments found under collected posts for that handle.
+
+data/deep_audit/accounts/<handle>/metric_snapshots.jsonl
+Per-account metric snapshots for collected posts and replies.
 
 data/deep_audit/summary.md
 Human-readable summary of accounts audited, posts collected, comments collected, mission topic, and target repo.
@@ -103,11 +121,11 @@ Shopping/fashion terms remain only as exclusion filters to prevent irrelevant re
 
 WHAT ZENO IS READY FOR
 Zeno is ready for configurable public-data account auditing.
-It can discover accounts from the mission topic, collect profile summaries, collect accessible posts, collect accessible replies/comments, save structured JSONL data, sync the target repo, and stop after completion.
+It can discover accounts from the mission topic, collect explicit profile fields, collect accessible posts with parsed entities/media/metrics, collect accessible replies/comments with explicit metrics, save both global JSONL datasets and per-account dossiers, sync the target repo, and stop after completion.
 
 IMPORTANT REALISTIC LIMITS
 Zeno can collect data that is accessible to the running browser/session and visible through current X/search pages.
-It cannot guarantee literally every historical post or every reply if the website does not expose them, search results omit them, the account is private, the browser session is blocked, or platform limits interrupt access.
+It cannot guarantee literally every historical post, every place a user commented, or every nested reply if the website does not expose them, search results omit them, the account is private, the browser session is blocked, or platform limits interrupt access.
 For maximum reliability, the target repo and Actions secrets must remain valid, and the Chromium profile source repo must remain accessible.
 
 CURRENT ASSESSMENT
