@@ -87,7 +87,7 @@ class GitHubOps:
             "Authorization": f"token {self.token}",
             "Accept": "application/vnd.github.v3+json",
             "Content-Type": "application/json",
-            "User-Agent": "Final-Puss/1.0",
+            "User-Agent": "Zeno-Data-Organism/1.0",
         }
 
     def _request(self, method: str, url: str, payload: dict | None = None, ok_statuses: Iterable[int] = (200, 201, 202, 204)) -> tuple[int, str]:
