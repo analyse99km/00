@@ -1,0 +1,122 @@
+ZENO FULL WORKING REPORT
+Generated: 2026-06-02
+
+OVERVIEW
+Zeno is configured as a data-collection and account-audit workflow for study and analysis. Its mission is controlled by zeno_config.txt, so changing the topic and target repo there changes what Zeno researches and where it saves collected data.
+
+CURRENT LIVE CONFIG
+Topic:
+crypto startups, web3 funding, solana launch, new token
+
+Target data repository:
+analyse99km/project1-crypto_startups
+
+Deep audit mode:
+Enabled
+
+Minimum accounts per run:
+100
+
+Posts per account:
+100
+
+Comments/replies per post:
+50
+
+Stop after deep audit:
+Enabled
+
+WHAT ZENO DOES IN ONE RUN
+1. GitHub Actions starts the workflow in analyse99km/v1.
+2. The workflow checks out the repo and hydrates the Chromium profile from analyse99km/cpr.
+3. The workflow builds and runs the Docker container on Ubuntu 22.04.
+4. zeno_v1.py loads zeno_config.txt.
+5. Config values are converted into environment variables:
+TOPIC becomes ZENO_MISSION_TOPIC.
+TARGET_REPO becomes ZENO_TARGET_REPO.
+Other keys become ZENO_* variables.
+6. Zeno starts the runtime engine, memory system, browser controller, trend hunter, and GitHub operations layer.
+7. Because DEEP_AUDIT_ENABLED=1, Zeno enters deep account audit mode before normal loop work.
+8. Zeno creates mission-based X/search queries from the configured topic only.
+9. Zeno searches for public high-signal posts related to the mission topic.
+10. Zeno extracts candidate account handles from those posts.
+11. Zeno skips accounts already audited in memory.
+12. Zeno continues collecting candidates until it reaches the configured minimum quota.
+13. For each selected account, Zeno collects a profile summary.
+14. For each selected account, Zeno collects up to the configured number of public posts.
+15. For each collected post, Zeno collects up to the configured number of public comments/replies.
+16. Zeno saves account, post, and comment records locally under data/deep_audit.
+17. Zeno records each audited account in SQLite so the same account is not repeatedly audited in later runs.
+18. Zeno writes a summary report for the run.
+19. Zeno pushes the collected data folder to the configured target repository.
+20. Because DEEP_AUDIT_STOP_AFTER_COMPLETE=1, Zeno stops after completing and syncing the audit.
+
+DATA FILES ZENO CREATES
+data/deep_audit/accounts.jsonl
+One JSON record per audited account. Includes handle, topic, source URL, profile summary, post count, comment count, and run id.
+
+data/deep_audit/posts.jsonl
+One JSON record per collected post. Includes handle, post URL, text, metrics, media fields, topic, and run id.
+
+data/deep_audit/comments.jsonl
+One JSON record per collected reply/comment. Includes parent post URL, handle, reply data, and run id.
+
+data/deep_audit/summary.md
+Human-readable summary of accounts audited, posts collected, comments collected, mission topic, and target repo.
+
+data/zeno_memory.db
+SQLite memory database. Stores beliefs, working memory, source registry, and audited account records.
+
+ACCOUNT DEDUPE LOGIC
+Zeno has an audited_accounts table in memory.
+Before auditing or engaging with an account, it normalizes the account key from handle or source URL.
+If the account key already exists, Zeno skips it.
+This prevents repeated audits of the same account across rebirths and future runs, as long as the memory database is preserved and synced.
+
+CONFIG CONTROL
+To change Zeno's mission, edit zeno_config.txt.
+
+Important keys:
+TOPIC controls what Zeno researches.
+TARGET_REPO controls where data is saved.
+DEEP_AUDIT_MIN_ACCOUNTS controls the minimum number of accounts targeted per run.
+DEEP_AUDIT_POSTS_PER_ACCOUNT controls post collection depth.
+DEEP_AUDIT_COMMENTS_PER_POST controls reply/comment collection depth.
+DEEP_AUDIT_STOP_AFTER_COMPLETE controls whether Zeno stops after syncing collected data.
+
+GITHUB TOKEN STATUS
+The live analyse99km/v1 repository has GH_PAT and GH_PAT_FG Actions secrets present.
+Zeno code now rejects invalid or corrupted fallback tokens.
+If GitHub token access is missing, Zeno fails clearly with:
+Valid GitHub token missing; set GH_PAT or GH_PAT_FG in Actions secrets
+
+WORKFLOW STATUS
+The workflow runs inside Docker on GitHub Actions Ubuntu 22.04.
+The job timeout is 355 minutes.
+The configured runtime is 3.2 hours, but in deep audit stop mode it exits after audit and target sync complete.
+Concurrency is enabled, so only one run for the same repo should remain active.
+
+TOPIC DRIFT CLEANUP
+Zeno's trend hunter now builds queries from ZENO_MISSION_TOPIC.
+Legacy positive categories from old organisms were removed from viral topic classification.
+Shopping/fashion terms remain only as exclusion filters to prevent irrelevant retail/fashion drift.
+
+WHAT ZENO IS READY FOR
+Zeno is ready for configurable public-data account auditing.
+It can discover accounts from the mission topic, collect profile summaries, collect accessible posts, collect accessible replies/comments, save structured JSONL data, sync the target repo, and stop after completion.
+
+IMPORTANT REALISTIC LIMITS
+Zeno can collect data that is accessible to the running browser/session and visible through current X/search pages.
+It cannot guarantee literally every historical post or every reply if the website does not expose them, search results omit them, the account is private, the browser session is blocked, or platform limits interrupt access.
+For maximum reliability, the target repo and Actions secrets must remain valid, and the Chromium profile source repo must remain accessible.
+
+CURRENT ASSESSMENT
+Code compilation passes.
+GitHub token secrets are present.
+Deep audit wiring is present.
+Target repo sync method is present.
+Account dedupe is present.
+Live workflow is running on the latest Zeno commit.
+
+Remaining thing to monitor:
+The live run should be checked for browser/session availability and actual collected output after it progresses far enough for logs/artifacts/data sync.
