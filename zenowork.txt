@@ -1,0 +1,27 @@
+ZENO ORGANISM: EXTRACTION WORKFLOW
+
+WHAT IT DOES:
+Zeno is an autonomous data extraction organism currently focused entirely on "crypto startups". 
+
+1. Target Discovery
+It automatically hunts for discussions, posts, and trends related to emerging crypto startups, funding announcements, and new decentralized projects. 
+
+2. Data Extraction
+When it finds a relevant discussion or project, it extracts:
+- The startup's name and context.
+- Market sentiment and early intelligence about the project.
+- URLs and source links for the startup.
+- The social handle of the person/account discussing the startup.
+
+3. Redundancy Prevention
+Once Zeno extracts data from a specific startup or account, it permanently logs that account as "audited". It will never scrape or extract from that exact account again, guaranteeing that it constantly discovers NEW crypto startups instead of repeating itself.
+
+WHERE IT SAVES THE DATA:
+1. Local Storage
+As it runs, it saves all the extracted intelligence (JSON files, memory databases, and text logs) into its local `data/` folder.
+
+2. The Vault (Final Destination)
+Right before the organism finishes its current cycle, it takes everything inside that `data/` folder and force-pushes it exclusively into your permanent vault:
+https://github.com/analyse99km/project1-crypto_startups
+
+All of your extracted crypto startup intelligence will accumulate safely in that repository.
