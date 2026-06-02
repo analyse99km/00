@@ -2201,7 +2201,7 @@ class ZenoPrime:
         try:
             created = self.github.create_repo(
                 repo_name=repo_name,
-                description=f"Final Puss Zeno iteration {rebirth_data['next_iteration']}",
+                description=f"Zeno data iteration {rebirth_data['next_iteration']}",
                 private=private_repo,
             )
             log.info("Repo ready: %s", created.get("html_url", repo_name))
