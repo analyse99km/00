@@ -46,21 +46,9 @@ class ViralIntelligence:
         tokens = set(re.findall(r"[a-z]{3,}", blob))
         if (tokens & SHOPPING_TERMS) and not any(phrase in blob for phrase in MISSION_PHRASES):
             return "off-topic"
-        if "war update" in blob:
-            return "war"
-        if any(phrase in blob for phrase in ("world order", "foreign policy", "global conflict")):
-            return "geopolitics"
-        category_map = (
-            ("entertainment", ("entertainment", "celebrity", "movie", "music", "gaming", "streaming", "box office")),
-            ("memes", ("meme", "memes", "humor", "funny", "viral")),
-            ("crypto", ("crypto", "bitcoin", "ethereum", "solana", "blockchain", "defi", "web3")),
-            ("war", ("war", "conflict", "ceasefire", "military", "nato", "ukraine", "russia", "israel", "gaza")),
-            ("geopolitics", ("geopolitics", "foreign policy", "world order", "global conflict")),
-            ("politics", ("politics", "political", "election", "government", "policy", "congress", "senate")),
-        )
-        for category, needles in category_map:
-            if any(needle in blob for needle in needles):
-                return category
+        for phrase in sorted(MISSION_PHRASES, key=len, reverse=True):
+            if phrase and phrase in blob:
+                return phrase[:40]
         mission_words = [word for word in re.findall(r"[A-Za-z]{4,}", blob) if word.lower() in MISSION_TERMS]
         if mission_words:
             return Counter(word.lower() for word in mission_words).most_common(1)[0][0]
