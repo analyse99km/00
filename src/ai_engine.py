@@ -1104,6 +1104,32 @@ class ZenoPrime:
         with open(path, "a", encoding="utf-8") as handle:
             handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
+    def _safe_account_dir_name(self, handle: str) -> str:
+        cleaned = re.sub(r"[^A-Za-z0-9_.-]+", "_", (handle or "").strip().lstrip("@").lower())
+        return cleaned or "unknown_account"
+
+    def _account_audit_dir(self, audit_dir: Path, handle: str) -> Path:
+        path = audit_dir / "accounts" / self._safe_account_dir_name(handle)
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def _metric_snapshot(self, record_type: str, account_handle: str, record_id: str, url: str, metrics: dict, run_id: str) -> dict:
+        metrics = metrics or {}
+        return {
+            "run_id": run_id,
+            "record_type": record_type,
+            "account_handle": account_handle,
+            "record_id": record_id,
+            "url": url,
+            "like_count": int(metrics.get("likes", metrics.get("like_count", 0)) or 0),
+            "retweet_count": int(metrics.get("reposts", metrics.get("retweet_count", 0)) or 0),
+            "reply_count": int(metrics.get("replies", metrics.get("reply_count", 0)) or 0),
+            "quote_count": int(metrics.get("quotes", metrics.get("quote_count", 0)) or 0),
+            "view_count": int(metrics.get("views", metrics.get("view_count", 0)) or 0),
+            "bookmark_count": int(metrics.get("bookmarks", metrics.get("bookmark_count", 0)) or 0),
+            "collected_at": datetime.utcnow().isoformat() + "Z",
+        }
+
     def _candidate_account_key(self, candidate: dict) -> str:
         handle = str(candidate.get("author_handle", "")).strip()
         if handle:
@@ -1197,45 +1223,103 @@ class ZenoPrime:
             handle = account["handle"]
             if self.memory.was_account_audited(author_handle=handle, source_url=account.get("source_url", "")):
                 continue
+            account_dir = self._account_audit_dir(audit_dir, handle)
             profile = self.browser.get_x_profile_summary(handle)
             posts = self.browser.get_x_account_posts(
                 handle,
                 limit=posts_per_account,
                 topic=os.environ.get("ZENO_MISSION_TOPIC", ""),
             )
+            profile_payload = {
+                "run_id": run_id,
+                "handle": handle,
+                "topic": account.get("topic", ""),
+                "source_url": account.get("source_url", ""),
+                "source_text": account.get("source_text", ""),
+                "discovery_metrics": account.get("metrics", {}),
+                "profile": profile,
+                "collected_at": datetime.utcnow().isoformat() + "Z",
+            }
+            (account_dir / "profile.json").write_text(json.dumps(profile_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             account_comment_count = 0
             for post in posts:
+                metrics = post.get("metrics", {}) or {}
                 post_payload = {
                     "run_id": run_id,
                     "handle": handle,
                     "topic": account.get("topic", ""),
+                    "tweet_id": post.get("tweet_id", ""),
                     "post_url": post.get("url", ""),
+                    "author_handle": post.get("author_handle", handle),
+                    "author_display_name": post.get("author_display_name", ""),
                     "text": post.get("text", ""),
+                    "full_text": post.get("full_text", post.get("text", "")),
                     "raw_text": post.get("raw_text", ""),
-                    "metrics": post.get("metrics", {}),
-                    "media": {
-                        "image_url": post.get("image_url", ""),
-                        "video_url": post.get("video_url", ""),
-                        "thumbnail_url": post.get("thumbnail_url", ""),
-                        "media_type": post.get("media_type", ""),
-                    },
-                    "captured_at": datetime.utcnow().isoformat() + "Z",
+                    "created_at": post.get("created_at", ""),
+                    "language": post.get("language", ""),
+                    "source_app": post.get("source_app", ""),
+                    "is_reply": bool(post.get("is_reply", False)),
+                    "reply_to_user": post.get("reply_to_user", ""),
+                    "is_quote": bool(post.get("is_quote", False)),
+                    "is_retweet": bool(post.get("is_retweet", False)),
+                    "like_count": int(post.get("like_count", metrics.get("likes", 0)) or 0),
+                    "retweet_count": int(post.get("retweet_count", metrics.get("reposts", 0)) or 0),
+                    "reply_count": int(post.get("reply_count", metrics.get("replies", 0)) or 0),
+                    "quote_count": int(post.get("quote_count", metrics.get("quotes", 0)) or 0),
+                    "view_count": int(post.get("view_count", metrics.get("views", 0)) or 0),
+                    "bookmark_count": int(post.get("bookmark_count", metrics.get("bookmarks", 0)) or 0),
+                    "metrics": metrics,
+                    "entities": post.get("entities", {}),
+                    "media_items": post.get("media_items", post.get("media", [])),
+                    "has_media": bool(post.get("has_media", False)),
+                    "poll": post.get("poll", {}),
+                    "place": post.get("place", ""),
+                    "conversation_id": post.get("conversation_id", ""),
+                    "possibly_sensitive": bool(post.get("possibly_sensitive", False)),
+                    "card": post.get("card", {}),
+                    "collected_at": datetime.utcnow().isoformat() + "Z",
                 }
                 self._append_jsonl(audit_dir / "posts.jsonl", post_payload)
+                self._append_jsonl(account_dir / "posts.jsonl", post_payload)
+                snapshot = self._metric_snapshot("post", handle, post_payload["tweet_id"], post_payload["post_url"], post_payload["metrics"], run_id)
+                self._append_jsonl(audit_dir / "metric_snapshots.jsonl", snapshot)
+                self._append_jsonl(account_dir / "metric_snapshots.jsonl", snapshot)
                 if comments_per_post and post.get("url"):
                     replies = self.browser.get_tweet_replies(post["url"], limit=comments_per_post)
                     for reply in replies:
                         account_comment_count += 1
-                        self._append_jsonl(
-                            audit_dir / "comments.jsonl",
-                            {
-                                "run_id": run_id,
-                                "handle": handle,
-                                "post_url": post.get("url", ""),
-                                "reply": reply,
-                                "captured_at": datetime.utcnow().isoformat() + "Z",
-                            },
-                        )
+                        reply_metrics = reply.get("metrics", {}) or {}
+                        comment_payload = {
+                            "run_id": run_id,
+                            "handle": handle,
+                            "post_url": post.get("url", ""),
+                            "parent_tweet_id": reply.get("parent_tweet_id", post.get("tweet_id", "")),
+                            "reply_id": reply.get("reply_id", ""),
+                            "reply_url": reply.get("reply_url", reply.get("url", "")),
+                            "author_handle": reply.get("author_handle", reply.get("user", "")),
+                            "author_display_name": reply.get("author_display_name", ""),
+                            "reply_text": reply.get("reply_text", reply.get("text", "")),
+                            "full_text": reply.get("full_text", reply.get("reply_text", reply.get("text", ""))),
+                            "created_at": reply.get("created_at", ""),
+                            "language": reply.get("language", ""),
+                            "reply_to_user": reply.get("reply_to_user", ""),
+                            "in_reply_to_user_id": reply.get("in_reply_to_user_id", ""),
+                            "like_count": int(reply.get("like_count", reply_metrics.get("likes", 0)) or 0),
+                            "retweet_count": int(reply.get("retweet_count", reply_metrics.get("reposts", 0)) or 0),
+                            "reply_count": int(reply.get("reply_count", reply_metrics.get("replies", 0)) or 0),
+                            "quote_count": int(reply.get("quote_count", reply_metrics.get("quotes", 0)) or 0),
+                            "view_count": int(reply.get("view_count", reply_metrics.get("views", 0)) or 0),
+                            "metrics": reply_metrics,
+                            "entities": reply.get("entities", {}),
+                            "media_items": reply.get("media_items", []),
+                            "has_media": bool(reply.get("has_media", False)),
+                            "collected_at": datetime.utcnow().isoformat() + "Z",
+                        }
+                        self._append_jsonl(audit_dir / "comments.jsonl", comment_payload)
+                        self._append_jsonl(account_dir / "comments.jsonl", comment_payload)
+                        reply_snapshot = self._metric_snapshot("reply", handle, comment_payload["reply_id"], comment_payload["reply_url"], comment_payload["metrics"], run_id)
+                        self._append_jsonl(audit_dir / "metric_snapshots.jsonl", reply_snapshot)
+                        self._append_jsonl(account_dir / "metric_snapshots.jsonl", reply_snapshot)
             record = {
                 "run_id": run_id,
                 "handle": handle,
@@ -1246,12 +1330,14 @@ class ZenoPrime:
                 "profile": profile,
                 "post_count": len(posts),
                 "comment_count": account_comment_count,
-                "captured_at": datetime.utcnow().isoformat() + "Z",
+                "account_data_dir": str(account_dir.relative_to(audit_dir)),
+                "collected_at": datetime.utcnow().isoformat() + "Z",
             }
             records.append(record)
             total_posts += len(posts)
             total_comments += account_comment_count
             self._append_jsonl(audit_dir / "accounts.jsonl", record)
+            (account_dir / "account.json").write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             self.memory.record_account_audit(
                 author_handle=handle,
                 source_url=account.get("source_url", ""),
