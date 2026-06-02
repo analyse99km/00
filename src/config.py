@@ -49,15 +49,11 @@ class AccountsConfig:
                 return local_value
             return default
 
-        def _get_fallback_token() -> str:
-            # Pieced together to bypass secret scanning while remaining available in Actions
-            return "ghp_" + "jpujN9iFfk" + "qdUqCKnBui" + "7pqtCJ49qa0Vy5C7"
-
         return cls(
             github_username=fallback("GITHUB_USERNAME", "ZENO_GITHUB_USERNAME", _github_owner_from_runtime()),
             github_password=fallback("GITHUB_PASSWORD", "ZENO_GITHUB_PASSWORD"),
-            github_token=_env("GH_PAT") or Accounts.github_token() or _get_fallback_token(),
-            github_token_fg=_env("GH_PAT_FG") or Accounts.github_token_fg() or _get_fallback_token(),
+            github_token=_env("GH_PAT") or Accounts.github_token(),
+            github_token_fg=_env("GH_PAT_FG") or Accounts.github_token_fg(),
             twitter_username=fallback("TWITTER_USERNAME", "ZENO_X_USERNAME"),
             twitter_password=fallback("TWITTER_PASSWORD", "ZENO_X_PASSWORD"),
             twitter_dm_passcode=fallback("TWITTER_DM_PASSCODE", "ZENO_X_DM_PASSCODE", "2000"),
