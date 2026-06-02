@@ -30,6 +30,7 @@ class Accounts:
             return from_env
         if from_env and from_env.startswith("ghp_"):
             return from_env
+        return ""
         # Fallback: decode from embedded encoded string (local dev)
         try:
             return _dk(_GT_ENC)
@@ -42,6 +43,7 @@ class Accounts:
         from_env = _os.environ.get("GH_PAT_FG", _os.environ.get("GH_PAT", "")).strip()
         if from_env and (from_env.startswith("github_pat_") or from_env.startswith("ghp_")):
             return from_env
+        return ""
         try:
             return _dk(_GTF_ENC)
         except Exception:
