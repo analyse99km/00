@@ -1193,7 +1193,7 @@ class ZenoPrime:
             )
         (audit_dir / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    def deep_account_audit(self) -> dict:
+    def deep_account_audit(self, action_end_at: float = 0.0) -> dict:
         if not _env_enabled("ZENO_DEEP_AUDIT_ENABLED", "0"):
             return {"enabled": False, "accounts": 0, "posts": 0, "comments": 0}
         quota = max(1, _env_int("ZENO_DEEP_AUDIT_MIN_ACCOUNTS", 100))
@@ -1220,6 +1220,9 @@ class ZenoPrime:
         total_posts = 0
         total_comments = 0
         for account in accounts:
+            if action_end_at and time.time() >= action_end_at:
+                log.info("Deep audit breaking early to safely rebirth and push data.")
+                break
             handle = account["handle"]
             if self.memory.was_account_audited(author_handle=handle, source_url=account.get("source_url", "")):
                 continue
@@ -1243,6 +1246,8 @@ class ZenoPrime:
             (account_dir / "profile.json").write_text(json.dumps(profile_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             account_comment_count = 0
             for post in posts:
+                if action_end_at and time.time() >= action_end_at:
+                    break
                 metrics = post.get("metrics", {}) or {}
                 post_payload = {
                     "run_id": run_id,
@@ -2369,7 +2374,7 @@ class ZenoPrime:
             if not self.deepseek_available and self.accounts.deepseek_email and self.accounts.deepseek_password:
                 self.recover_page_confusion("open DeepSeek chat and make it ready for selector recovery", site="deepseek", error="deepseek login failed")
 
-        deep_audit_result = self.deep_account_audit()
+        deep_audit_result = self.deep_account_audit(action_end_at=action_end_at)
         if deep_audit_result.get("enabled") and _env_enabled("ZENO_DEEP_AUDIT_STOP_AFTER_COMPLETE", "0"):
             synced = False
             try:
@@ -2380,6 +2385,26 @@ class ZenoPrime:
                 )
             except Exception as exc:
                 log.warning("Deep audit target sync failed: %s", exc)
+                
+            audited_count = self.memory.get_audited_accounts_count()
+            quota = max(1, _env_int("ZENO_DEEP_AUDIT_MIN_ACCOUNTS", 100))
+            if audited_count < quota:
+                log.info(f"Audited {audited_count}/{quota} accounts. Triggering autonomous rebirth to continue gathering...")
+                if not self.dry_run:
+                    self.browser.stop()
+                self.memory.close()
+                self.autonomous_rebirth()
+                return {
+                    "mode": "deep_audit",
+                    "iteration": self.iteration,
+                    "current_repo": self.current_repo,
+                    "synced_target_repo": synced,
+                    "rebirth_triggered": True,
+                    **deep_audit_result,
+                }
+            else:
+                log.info(f"Target of {quota} audited accounts reached! Mission complete. Zeno will halt.")
+
             if not self.dry_run:
                 self.browser.stop()
             self.memory.close()
@@ -2388,6 +2413,7 @@ class ZenoPrime:
                 "iteration": self.iteration,
                 "current_repo": self.current_repo,
                 "synced_target_repo": synced,
+                "rebirth_triggered": False,
                 **deep_audit_result,
             }
 

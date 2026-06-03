@@ -751,6 +751,12 @@ class MemorySystem:
         )
         return cur.fetchone() is not None
 
+    def get_audited_accounts_count(self, action: str = "deep_audit") -> int:
+        cur = self.conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM audited_accounts WHERE action = ?", (action,))
+        row = cur.fetchone()
+        return row[0] if row else 0
+
     def get_stats(self) -> Dict:
         cur = self.conn.cursor()
         stats = {}
