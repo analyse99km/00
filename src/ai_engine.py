@@ -1228,7 +1228,7 @@ class ZenoPrime:
             posts = self.browser.get_x_account_posts(
                 handle,
                 limit=posts_per_account,
-                topic=os.environ.get("ZENO_MISSION_TOPIC", ""),
+                topic="", # Force empty topic to extract their FULL A-Z timeline without filtering
             )
             profile_payload = {
                 "run_id": run_id,
