@@ -1147,29 +1147,85 @@ class SeleniumController:
         clean = (handle or "").strip().lstrip("@")
         if not clean:
             return []
-        query = f"from:{clean}"
+        
         if topic:
-            query = f"{query} ({topic})"
+            query = f"from:{clean} ({topic})"
+            encoded = urllib.parse.quote(query, safe="")
+            mode = os.environ.get("ZENO_X_SEARCH_MODE", "live").strip().lower() or "live"
+            url = f"https://x.com/search?q={encoded}&src=typed_query&f={mode}"
+        else:
+            url = f"https://x.com/{clean}"
+            
+        try:
+            self.driver.get(url)
+            _delay(4, 7)
+        except Exception as e:
+            log.warning(f"Timeout or error loading posts URL: {e}")
+            return []
+            
         posts: List[dict] = []
         seen = set()
-        rounds = max(1, min(10, int((limit + 11) / 12)))
-        for _ in range(rounds):
-            for hit in self.search_x(query, limit=min(12, max(3, limit - len(posts)))):
-                key = hit.get("url") or hit.get("text")
-                if not key or key in seen:
-                    continue
-                seen.add(key)
-                hit["account_handle"] = f"@{clean}"
-                hit = self._normalize_post_record(hit, parent_handle=f"@{clean}")
-                posts.append(hit)
-                if len(posts) >= limit:
-                    return posts
+        no_new_posts_count = 0
+        
+        while len(posts) < limit:
             try:
-                self.driver.execute_script("window.scrollBy(0, Math.floor(window.innerHeight * 0.9));")
-            except Exception:
+                articles = self.driver.find_elements(By.CSS_SELECTOR, "article")
+                added_this_round = 0
+                for article in articles:
+                    if len(posts) >= limit:
+                        break
+                    
+                    text = self._extract_tweet_text(article)
+                    if not text:
+                        continue
+                    raw_text = article.text.strip()
+                    link_elements = article.find_elements(By.CSS_SELECTOR, "a[href*='/status/']")
+                    raw_link = link_elements[0].get_attribute("href") if link_elements else ""
+                    link = self._normalize_status_url(raw_link)
+                    
+                    key = link or text
+                    if not key or key in seen:
+                        continue
+                    seen.add(key)
+                    added_this_round += 1
+                    
+                    media = self._extract_tweet_media(article)
+                    hit = {
+                        "query": f"from:{clean}",
+                        "user": self._extract_author_handle(article, link),
+                        "account_handle": f"@{clean}",
+                        "text": text,
+                        "raw_text": raw_text,
+                        "url": link,
+                        "created_at": self._extract_timestamp(article),
+                        "language": self._extract_language(article),
+                        "image_url": media.get("media_url", ""),
+                        "video_url": media.get("video_url", ""),
+                        "thumbnail_url": media.get("thumbnail_url", ""),
+                        "media_type": media.get("media_type", ""),
+                        "media_items": self._extract_media_items(article),
+                        "metrics": self._extract_metrics(article, raw_text),
+                    }
+                    hit = self._normalize_post_record(hit, parent_handle=f"@{clean}")
+                    posts.append(hit)
+                
+                if added_this_round == 0:
+                    no_new_posts_count += 1
+                else:
+                    no_new_posts_count = 0
+                    
+                if no_new_posts_count >= 5: 
+                    break
+                    
+                if len(posts) < limit:
+                    self.driver.execute_script("window.scrollBy(0, Math.floor(window.innerHeight * 0.9));")
+                    _delay(1, 2)
+                    
+            except Exception as exc:
+                log.error("Error during post extraction loop: %s", exc)
                 break
-            _delay(1, 2)
-        return posts[:limit]
+                
+        return posts
 
     def get_notifications(self, limit: int = 30) -> List[dict]:
         if self.driver is None:
