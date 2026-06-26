@@ -108,6 +108,20 @@ class MemorySystem:
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS investor_leads (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                platform        TEXT,
+                username        TEXT,
+                email           TEXT,
+                name            TEXT,
+                role            TEXT,
+                fund_name       TEXT,
+                profile_url     TEXT,
+                metadata        TEXT,           -- JSON blob for additional info
+                created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(platform, username, email)
+            );
+
             CREATE TABLE IF NOT EXISTS selector_strategies (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 site TEXT,
@@ -176,6 +190,36 @@ class MemorySystem:
                 ON audited_accounts(account_key);
         """)
         self.conn.commit()
+
+    # ------------------------------------------------------------------ #
+    # Investor Leads
+    # ------------------------------------------------------------------ #
+    
+    def add_investor_lead(self, platform: str, username: str, email: str, 
+                          name: str = "", role: str = "", fund_name: str = "", 
+                          profile_url: str = "", metadata: dict | None = None) -> bool:
+        """
+        Save a unique investor lead. Returns True if inserted, False if duplicate.
+        """
+        if not self.conn:
+            return False
+        
+        meta_str = json.dumps(metadata) if metadata else "{}"
+        
+        try:
+            cur = self.conn.cursor()
+            cur.execute("""
+                INSERT INTO investor_leads 
+                (platform, username, email, name, role, fund_name, profile_url, metadata)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (platform, username, email, name, role, fund_name, profile_url, meta_str))
+            self.conn.commit()
+            return True
+        except sqlite3.IntegrityError:
+            # Duplicate lead based on UNIQUE(platform, username, email)
+            return False
+        except Exception as e:
+            return False
 
     # ------------------------------------------------------------------ #
     # Beliefs
