@@ -5,6 +5,7 @@ from .ai_engine import ZenoPrime
 from .platforms.curated_investors import CuratedInvestorsScraper
 from .platforms.high_friction_investors import HighFrictionScraper
 from .platforms.social_communities import SocialCommunitiesScraper
+from .platforms.osint_dorker import OSINTDorker
 
 log = logging.getLogger("zeno.leads")
 
@@ -20,6 +21,7 @@ class InvestorLeadEngine(ZenoPrime):
         self.curated_scraper = CuratedInvestorsScraper(self.browser, self.memory)
         self.high_friction_scraper = HighFrictionScraper(self.browser, self.memory)
         self.social_scraper = SocialCommunitiesScraper(self.browser, self.memory)
+        self.osint_dorker = OSINTDorker(self.browser, self.memory)
 
     def run_forever(self, hours_per_run: float = 5.5) -> dict:
         """
@@ -62,6 +64,12 @@ class InvestorLeadEngine(ZenoPrime):
                 self.social_scraper.scrape_and_parse(self.llm_parser)
             except Exception as e:
                 log.error(f"Error in SocialCommunitiesScraper: {e}")
+                
+            # Module 4: Stealth OSINT Dorking (Fallback)
+            try:
+                self.osint_dorker.scrape_and_parse(self.llm_parser)
+            except Exception as e:
+                log.error(f"Error in OSINTDorker: {e}")
                 
             # If we finish early or want to sleep between rounds
             time.sleep(60)
