@@ -2393,7 +2393,8 @@ class ZenoPrime:
                 if not self.dry_run:
                     self.browser.stop()
                 self.memory.close()
-                self.autonomous_rebirth()
+                rebirth_data = self.prepare_for_rebirth()
+                self._complete_rebirth(rebirth_data)
                 return {
                     "mode": "deep_audit",
                     "iteration": self.iteration,
