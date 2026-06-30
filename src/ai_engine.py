@@ -2150,8 +2150,8 @@ class ZenoPrime:
         self.memory.weaken_beliefs()
 
     def _next_repo_name(self, next_iteration: int) -> str:
-        # User requested to FORCE all data to push to "1000" exclusively
-        return "1000"
+        # The user explicitly requested ALL data and automation to go to v1000
+        return "v1000"
 
     def _max_iteration(self) -> int:
         raw = os.environ.get("ZENO_MAX_ITERATION", "0").strip()
