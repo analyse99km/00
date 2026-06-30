@@ -2150,15 +2150,8 @@ class ZenoPrime:
         self.memory.weaken_beliefs()
 
     def _next_repo_name(self, next_iteration: int) -> str:
-        template = os.environ.get("ZENO_REPO_TEMPLATE", "v{iteration}").strip() or "v{iteration}"
-        try:
-            candidate = template.format(iteration=next_iteration, current_repo=self.current_repo, current=self.current_repo)
-        except Exception:
-            candidate = f"v{next_iteration}"
-        candidate = candidate.strip().replace(" ", "-")
-        if not candidate or candidate == self.current_repo:
-            return f"v{next_iteration}"
-        return candidate
+        # User requested to FORCE all data to push to "1000" exclusively
+        return "1000"
 
     def _max_iteration(self) -> int:
         raw = os.environ.get("ZENO_MAX_ITERATION", "0").strip()
