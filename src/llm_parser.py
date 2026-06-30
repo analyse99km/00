@@ -40,7 +40,7 @@ class LLMParser:
             log.info("Tier 1: Attempting extraction with Local Ollama...")
             # We use a strict prompt to ensure JSON
             full_prompt = f"{prompt}\n\nSTRICTLY return ONLY JSON array. Text:\n{text}"
-            local_resp = local_brain.generate(full_prompt, role="chat", max_retries=1)
+            local_resp = local_brain.ask(full_prompt, role="chat")
             
             if local_resp:
                 cleaned = local_resp.strip()
