@@ -3,6 +3,8 @@ import logging
 import os
 from .ai_engine import ZenoPrime
 from .platforms.curated_investors import CuratedInvestorsScraper
+from .platforms.high_friction_investors import HighFrictionScraper
+from .platforms.social_communities import SocialCommunitiesScraper
 
 log = logging.getLogger("zeno.leads")
 
@@ -16,6 +18,8 @@ class InvestorLeadEngine(ZenoPrime):
         super().__init__(*args, **kwargs)
         # Initialize our custom scrapers
         self.curated_scraper = CuratedInvestorsScraper(self.browser, self.memory)
+        self.high_friction_scraper = HighFrictionScraper(self.browser, self.memory)
+        self.social_scraper = SocialCommunitiesScraper(self.browser, self.memory)
 
     def run_forever(self, hours_per_run: float = 5.5) -> dict:
         """
@@ -46,6 +50,18 @@ class InvestorLeadEngine(ZenoPrime):
                 self.curated_scraper.scrape_and_parse(self.llm_parser)
             except Exception as e:
                 log.error(f"Error in CuratedInvestorsScraper: {e}")
+                
+            # Module 2: LinkedIn / Crunchbase / Wellfound
+            try:
+                self.high_friction_scraper.scrape_and_parse(self.llm_parser)
+            except Exception as e:
+                log.error(f"Error in HighFrictionScraper: {e}")
+                
+            # Module 3: Discord Web3 Groups
+            try:
+                self.social_scraper.scrape_and_parse(self.llm_parser)
+            except Exception as e:
+                log.error(f"Error in SocialCommunitiesScraper: {e}")
                 
             # If we finish early or want to sleep between rounds
             time.sleep(60)
